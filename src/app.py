@@ -1,13 +1,13 @@
 """
 Gradio upload app: drop a photo → get the learned look.
 
-Run after training (or with shipped models):
+Run:
   python -m src.app
+  # or (Spaces / root entrypoint)
+  python app.py
 """
 
 from __future__ import annotations
-
-from pathlib import Path
 
 import cv2
 import numpy as np
@@ -29,8 +29,11 @@ def _bgr_to_pil(bgr: np.ndarray) -> Image.Image:
 
 
 def _list_models() -> list[str]:
-    names = sorted(p.name for p in MODELS.glob("*.json") if p.name != "split.json" and p.name != "eval_test.json")
-    return names
+    return sorted(
+        p.name
+        for p in MODELS.glob("*.json")
+        if p.name not in {"split.json", "eval_test.json"}
+    )
 
 
 def enhance_pil(img: Image.Image, model_obj, max_side: int = 1600) -> Image.Image:
@@ -43,11 +46,8 @@ def enhance_pil(img: Image.Image, model_obj, max_side: int = 1600) -> Image.Imag
     return _bgr_to_pil(out)
 
 
-def main():
-    try:
-        import gradio as gr
-    except ImportError as e:
-        raise SystemExit("Install gradio first: pip install gradio") from e
+def build_demo():
+    import gradio as gr
 
     model_names = _list_models()
     try:
@@ -69,13 +69,13 @@ def main():
         if photo is None:
             return None
         if not model_names:
-            raise gr.Error("No trained models in outputs/models/. Run fit_models + evaluate first.")
+            raise gr.Error("No trained models in outputs/models/.")
         name = model_name or default_name
         if not isinstance(photo, Image.Image):
             photo = Image.fromarray(photo)
         return enhance_pil(photo, _get_model(name))
 
-    demo = gr.Interface(
+    return gr.Interface(
         fn=run,
         inputs=[
             gr.Image(type="pil", label="Upload phone photo"),
@@ -92,10 +92,13 @@ def main():
             f"Default model: **{default_name or 'none'}**. "
             "Upload any phone photo to try the look."
         ),
-        examples=None,
-        allow_flagging="never",
+        flagging_mode="never",
     )
-    demo.launch(server_name="127.0.0.1", server_port=7860)
+
+
+def main():
+    demo = build_demo()
+    demo.launch(server_name="0.0.0.0", server_port=7860)
 
 
 if __name__ == "__main__":

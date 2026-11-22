@@ -1,57 +1,62 @@
+---
+title: Phone Look DA3021
+emoji: 📷
+colorFrom: indigo
+colorTo: pink
+sdk: gradio
+sdk_version: 4.44.1
+app_file: app.py
+pinned: false
+license: mit
+short_description: CPU phone→Canon colour/tone look from DPED pairs
+---
+
 # Phone Look — DA3021
 
 CPU pipeline that learns a “better camera” colour/tone look from paired photos (phone → reference), then serves it in a Gradio upload app.
 
-Trained here on **DPED iPhone→Canon** sample patches. Swap in your own Night/HDR pairs anytime.
+Trained on **DPED iPhone→Canon** sample patches. Swap in your own Night/HDR pairs anytime.
 
-## Quick start (app)
+## Live demo
+
+Deployed as a Hugging Face Space (see repo / Space link after deploy).
+
+## Quick start (local)
 
 ```bash
 git clone https://github.com/Charanponaganti/phone-look-da3021.git
 cd phone-look-da3021
 pip install -r requirements.txt
-python -m src.app
+python app.py
 ```
 
-Open the local Gradio URL (default `http://127.0.0.1:7860`), upload a photo, pick a model.
+Open the Gradio URL, upload a photo, pick a model.
 
-Shipped default model: `tone_curves.json` (best held-out ΔE on the DPED sample split).
+Shipped default model: `tone_curves.json`.
 
 ## Full pipeline
 
 ```bash
-# optional: refresh DPED sample pairs
-python -m src.download_dped_sample
-
+python -m src.download_dped_sample   # optional
 python -m src.align_pairs
 python -m src.fit_models
 python -m src.evaluate
 python -m src.make_figures
-python -m src.app
+python app.py
 ```
 
-Or shoot your own pairs into `data/raw/pairs/`:
-
-```
-scene01_src.jpg   # normal phone
-scene01_tgt.jpg   # Night / HDR / better camera
-```
-
-See `Capture_Checklist.pdf` for a capture guide.
+Own pairs go in `data/raw/pairs/` as `sceneXX_src.jpg` + `sceneXX_tgt.jpg`. See `Capture_Checklist.pdf`.
 
 ## Layout
 
 | Path | Role |
 |------|------|
-| `src/` | align, fit, evaluate, apply, Gradio app |
-| `data/raw/pairs/` | `*_src` / `*_tgt` training pairs |
-| `outputs/models/` | trained JSON models + eval |
-| `outputs/figures/` | triptychs / ranking plots (local) |
+| `app.py` | Gradio / Spaces entrypoint |
+| `src/` | align, fit, evaluate, apply, app logic |
+| `data/raw/pairs/` | training pairs |
+| `outputs/models/` | trained JSON models |
 
-## Models
-
-Ladder fitted in Lab: tone curves → 3×3 (+bias) matrix → root-polynomial + ridge.
-Apply any photo with:
+## CLI enhance
 
 ```bash
 python -m src.apply path/to/photo.jpg

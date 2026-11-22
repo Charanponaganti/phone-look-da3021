@@ -7,8 +7,6 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 import numpy as np
-from sklearn.linear_model import Ridge
-from sklearn.preprocessing import PolynomialFeatures
 
 
 @dataclass
@@ -66,6 +64,8 @@ def root_poly_features(x: np.ndarray, degree: int = 2) -> np.ndarray:
 
 
 def fit_root_poly(src: np.ndarray, tgt: np.ndarray, degree: int = 2, alpha: float = 1.0) -> dict:
+    from sklearn.linear_model import Ridge
+
     X = root_poly_features(src, degree=degree)
     # Scale columns for conditioning (course idea)
     mean = X.mean(axis=0)
