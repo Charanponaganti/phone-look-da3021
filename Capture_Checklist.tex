@@ -1,0 +1,183 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=18mm]{geometry}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{tcolorbox}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{amssymb}
+
+\definecolor{ink}{HTML}{0F172A}
+\definecolor{accent}{HTML}{BE123C}
+\definecolor{soft}{HTML}{FFF1F2}
+\definecolor{muted}{HTML}{64748B}
+\definecolor{ok}{HTML}{065F46}
+
+\hypersetup{colorlinks=true,linkcolor=accent,urlcolor=accent}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textcolor{muted}{DA3021 · Phone Look Project}}
+\fancyhead[R]{\small\textcolor{muted}{Capture checklist}}
+\fancyfoot[C]{\small\textcolor{muted}{\thepage}}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0.3pt}
+
+\titleformat{\section}{\large\bfseries\color{accent}}{\thesection}{0.6em}{}
+\titleformat{\subsection}{\normalsize\bfseries\color{ink}}{\thesubsection}{0.5em}{}
+\setlist[itemize]{leftmargin=1.3em,itemsep=0.25em,topsep=0.3em}
+\setlist[enumerate]{leftmargin=1.4em,itemsep=0.25em,topsep=0.3em}
+
+\tcbset{
+  colback=soft,
+  colframe=accent,
+  boxrule=0.6pt,
+  arc=2pt,
+  left=8pt,right=8pt,top=6pt,bottom=6pt,
+  fonttitle=\bfseries
+}
+
+\begin{document}
+
+\begin{center}
+  {\LARGE\bfseries\color{ink} Capture Checklist}\\[0.35em]
+  {\large\color{muted} iPhone $\leftrightarrow$ Normal\quad\&\quad Normal $\leftrightarrow$ HDR/Night}\\[0.5em]
+  {\normalsize DA3021 Course Project · shoot tonight · copy into \texttt{data/raw/pairs/}}
+\end{center}
+\vspace{0.4em}
+
+\begin{tcolorbox}[title=One rule for both modes]
+Every scene needs \textbf{two photos of the same view}.\\
+\texttt{sceneXX\_src.jpg} = source (ordinary look)\qquad
+\texttt{sceneXX\_tgt.jpg} = target (look you want to copy)
+\end{tcolorbox}
+
+\section{Choose your capture mode}
+You only need \textbf{one} of these. Prefer Mode~A if an iPhone (or any flagship) is available for one evening.
+
+\begin{center}
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{@{}>{\bfseries}l p{5.6cm} p{5.6cm}@{}}
+\toprule
+ & \textbf{Mode A · iPhone $\leftrightarrow$ Normal} & \textbf{Mode B · Normal $\leftrightarrow$ HDR/Night} \\
+\midrule
+\texttt{src} & Your budget / normal phone & Your phone, \textbf{normal} mode \\
+\texttt{tgt} & iPhone (or Pixel / flagship) & Your phone, \textbf{Night or HDR} mode \\
+Need & Friend's better phone for $\sim$1 evening & Only your phone \\
+Question & ``Can my phone look like an iPhone?'' & ``Can normal shots look like Night/HDR?'' \\
+Code change & None --- same filenames & None --- same filenames \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{File naming (must match the code)}
+Put files in \texttt{phone\_look\_project/data/raw/pairs/}:
+\begin{verbatim}
+scene01_src.jpg
+scene01_tgt.jpg
+scene02_src.jpg
+scene02_tgt.jpg
+...
+scene16_src.jpg
+scene16_tgt.jpg
+\end{verbatim}
+Aim for \textbf{12--20 scenes}. More is better; fewer than 8 makes the train/test split weak.
+
+\section{How to shoot one scene}
+\begin{enumerate}
+  \item Brace the phone(s): table edge, books, wall lean, or tripod.
+  \item Frame a mostly \textbf{static} scene (avoid walking people in the centre).
+  \item Take \texttt{src}, then within a few seconds take \texttt{tgt} from the \textbf{same spot} and framing.
+  \item For Mode~A: hold the two phones stacked / side-by-side as tightly as possible.
+  \item For Mode~B: switch mode only (normal $\rightarrow$ Night/HDR); do not walk between shots.
+  \item Leave auto exposure / auto WB on --- those choices are part of the look.
+\end{enumerate}
+
+\section{Mode A extras (iPhone $\leftrightarrow$ normal)}
+\begin{itemize}
+  \item Prefer scenes a few metres away (less parallax between lenses).
+  \item Match orientation (both portrait or both landscape).
+  \item Keep the same zoom (both at $1\times$).
+  \item If the iPhone uses Night mode automatically in the dark, that is fine --- still save it as \texttt{tgt}.
+\end{itemize}
+
+\section{Mode B extras (normal $\leftrightarrow$ HDR/Night)}
+\begin{itemize}
+  \item Use whichever ``best'' mode looks clearly different (Night indoor, HDR for windows).
+  \item If Night needs a long exposure, keep the phone very still or the pair will not align.
+  \item Do not crop differently between \texttt{src} and \texttt{tgt}.
+\end{itemize}
+
+\section{Scene checklist (tick as you go)}
+Mix indoor / outdoor / faces / text / colour. Tick when both \texttt{src} and \texttt{tgt} are saved.
+
+\vspace{0.3em}
+\renewcommand{\arraystretch}{1.35}
+\begin{tabularx}{\textwidth}{@{}c >{\bfseries}l X c c@{}}
+\toprule
+\# & Scene idea & Why it helps & src & tgt \\
+\midrule
+01 & Hostel desk under LED & Warm cast, noise & $\square$ & $\square$ \\
+02 & Face / portrait (consent) & Skin tones & $\square$ & $\square$ \\
+03 & Window / backlight & Highlights \& shadows & $\square$ & $\square$ \\
+04 & Whiteboard / printed text & Sharpness / readability & $\square$ & $\square$ \\
+05 & Corridor & Mixed lighting & $\square$ & $\square$ \\
+06 & Food / colourful object & Saturation & $\square$ & $\square$ \\
+07 & Outdoor dusk & Low light & $\square$ & $\square$ \\
+08 & Plant / leaves & Fine texture & $\square$ & $\square$ \\
+09 & Bookshelf & Structure \& colour & $\square$ & $\square$ \\
+10 & Notice board / poster & Text + colour & $\square$ & $\square$ \\
+11 & Bathroom / mirror lights & Hard light & $\square$ & $\square$ \\
+12 & Stairwell & Dim indoor & $\square$ & $\square$ \\
+13 & Outdoor building facade & Daylight baseline & $\square$ & $\square$ \\
+14 & Desk lamp close-up & Strong local light & $\square$ & $\square$ \\
+15 & Classroom / lab bench & Everyday usefulness & $\square$ & $\square$ \\
+16 & Your choice & Fill gaps & $\square$ & $\square$ \\
+\bottomrule
+\end{tabularx}
+
+\section{Optional bursts (extra marks)}
+For 4--5 scenes, also shoot 6--8 quick frames in normal mode and save:
+\begin{verbatim}
+data/raw/bursts/scene01/0001.jpg
+data/raw/bursts/scene01/0002.jpg
+...
+\end{verbatim}
+Used later to show noise falling as frames are merged.
+
+\section{After shooting --- run on the laptop}
+\begin{enumerate}
+  \item Copy all pairs into \texttt{data/raw/pairs/}.
+  \item Delete the fake demo pairs (\texttt{scene01}--\texttt{scene08} from the smoke test) \textbf{or} use new names like \texttt{real01\_src.jpg}.
+  \item Run:
+\end{enumerate}
+\begin{verbatim}
+cd phone_look_project
+python -m src.align_pairs
+python -m src.fit_models
+python -m src.evaluate
+python -m src.make_figures
+python -m src.app
+\end{verbatim}
+
+\begin{tcolorbox}[colback=white,colframe=ok,title=Quick sanity check]
+After \texttt{align\_pairs}, open \texttt{data/aligned/sceneXX/}: you should see \texttt{src.png}, \texttt{tgt\_warped.png}, and \texttt{mask.png}. If alignment fails, reshoot that scene with more overlap / less motion.
+\end{tcolorbox}
+
+\section{Privacy}
+\begin{itemize}
+  \item Get consent before using someone else's face in the video.
+  \item Blur strangers if the photo will be shown publicly.
+\end{itemize}
+
+\vspace{0.6em}
+\begin{center}
+\small\textcolor{muted}{Mode A and Mode B use the same code path. Only what you put in \texttt{tgt} changes.}
+\end{center}
+
+\end{document}

@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+.env.*
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Large / regenerable data (keep trained models + small sample pairs)
+data/external/dped_sample/sample_images.gz
+data/external/dped_sample/extracted/
+data/aligned/
+data/raw/bursts/
+outputs/enhanced/
+outputs/figures/
+
+# Local scratch
+*.log
+.ipynb_checkpoints/

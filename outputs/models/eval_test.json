@@ -1,0 +1,59 @@
+{
+  "test_scenes": [
+    "dped17",
+    "dped11",
+    "dped16",
+    "dped09",
+    "dped14"
+  ],
+  "ranking": [
+    {
+      "model": "tone_curves.json",
+      "kind": "tone_curves",
+      "test_delta_e": 0.0949,
+      "baseline_delta_e": 0.0841,
+      "improvement_pct": -12.88,
+      "test_ssim": 0.8402
+    },
+    {
+      "model": "root_poly_d3_a1.json",
+      "kind": "root_poly",
+      "test_delta_e": 0.1086,
+      "baseline_delta_e": 0.0841,
+      "improvement_pct": -29.2,
+      "test_ssim": 0.7644
+    },
+    {
+      "model": "root_poly_d3_a10.json",
+      "kind": "root_poly",
+      "test_delta_e": 0.1086,
+      "baseline_delta_e": 0.0841,
+      "improvement_pct": -29.13,
+      "test_ssim": 0.7651
+    },
+    {
+      "model": "color_matrix.json",
+      "kind": "color_matrix",
+      "test_delta_e": 0.1095,
+      "baseline_delta_e": 0.0841,
+      "improvement_pct": -30.23,
+      "test_ssim": 0.8259
+    },
+    {
+      "model": "root_poly_d2_a1.json",
+      "kind": "root_poly",
+      "test_delta_e": 0.1184,
+      "baseline_delta_e": 0.0841,
+      "improvement_pct": -40.88,
+      "test_ssim": 0.7475
+    },
+    {
+      "model": "root_poly_d2_a10.json",
+      "kind": "root_poly",
+      "test_delta_e": 0.1184,
+      "baseline_delta_e": 0.0841,
+      "improvement_pct": -40.86,
+      "test_ssim": 0.748
+    }
+  ]
+}
