@@ -137,16 +137,31 @@ STUDIO_CSS = """
 }
 #phone-look .pl-step .tag { color: var(--amber); font-weight: 600; }
 
-#phone-look .pl-src {
-  margin: 0;
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--muted);
-  padding-top: 0.55rem;
+/* Gradio "processing | 12.3s" chip — keep off the toolbar, readable on dark */
+#phone-look .progress-text,
+#phone-look .meta-text,
+#phone-look .eta-bar,
+#phone-look .pending,
+.progress-text,
+.meta-text,
+.eta-bar {
+  color: #111111 !important;
+  -webkit-text-fill-color: #111111 !important;
+  background: var(--amber) !important;
+  border: none !important;
+  border-radius: 999px !important;
+  padding: 6px 12px !important;
+  font-family: "IBM Plex Mono", monospace !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.02em !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.45) !important;
+  z-index: 50 !important;
 }
-#phone-look .pl-src.on { color: var(--amber); }
+#phone-look .progress-level,
+.progress-level {
+  background: rgba(232, 165, 75, 0.25) !important;
+}
 
 #phone-look .pl-status {
   margin: 10px 0 0;
@@ -398,7 +413,10 @@ def _diff_heatmap(before_bgr: np.ndarray, after_bgr: np.ndarray, gain: float = 5
 
 
 def _empty_status() -> str:
-    return '<p class="pl-status">ready — drop a phone photo above</p>'
+    return (
+        '<p class="pl-status"><strong>ready</strong>'
+        '<span class="pl-delta"> — drop a phone photo above</span></p>'
+    )
 
 
 def _status_html(info: dict, delta: dict | None = None) -> str:
@@ -414,12 +432,6 @@ def _status_html(info: dict, delta: dict | None = None) -> str:
         )
     html += "</p>"
     return html
-
-
-def _src_html(loaded: bool) -> str:
-    cls = "pl-src on" if loaded else "pl-src"
-    text = "SOURCE LOADED" if loaded else "NO SOURCE LOADED"
-    return f'<p class="{cls}">{text}</p>'
 
 
 def _export_path(after_pil: Image.Image | None) -> str | None:
@@ -532,7 +544,6 @@ def build_demo():
                 gr.update(value=None, visible=show_diff),
                 gr.update(visible=show_side),
                 _empty_status(),
-                _src_html(False),
                 gr.update(value=None, interactive=False),
                 None,
                 None,
@@ -569,7 +580,6 @@ def build_demo():
             gr.update(value=heat, visible=show_diff),
             gr.update(visible=show_side),
             status,
-            _src_html(True),
             gr.update(value=export, interactive=bool(export)),
             before_pil,
             after_pil,
@@ -642,9 +652,8 @@ def build_demo():
                 label="View",
                 show_label=False,
                 elem_id="view-mode",
-                scale=5,
+                scale=7,
             )
-            src_html = gr.HTML(_src_html(False), scale=2)
             with gr.Column(scale=3, min_width=200):
                 sample_btn = gr.Button("Load sample", variant="secondary")
                 export_btn = gr.DownloadButton(
@@ -783,18 +792,19 @@ def build_demo():
             diff_img,
             side_row,
             status,
-            src_html,
             export_btn,
             st_before,
             st_after,
         ]
         inputs = [photo, look, strength, preset, view_mode]
 
-        run_btn.click(process, inputs, outs)
-        photo.change(process, inputs, outs)
-        look.change(process, inputs, outs)
-        strength.release(process, inputs, outs)
-        preset.change(process, inputs, outs)
+        # Minimal progress: amber chip via CSS, not a ghost "NO SOURCE LOADED" overlay
+        kw = {"show_progress": "minimal"}
+        run_btn.click(process, inputs, outs, **kw)
+        photo.change(process, inputs, outs, **kw)
+        look.change(process, inputs, outs, **kw)
+        strength.release(process, inputs, outs, **kw)
+        preset.change(process, inputs, outs, **kw)
 
         # Tiles only set look — look.change runs process once (no .then)
         profile.change(tile_to_look, [profile], [look])
