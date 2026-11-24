@@ -18,7 +18,8 @@ CPU pipeline that learns a better-camera colour/tone look from paired photos, th
 
 ## Live demo
 
-Hugging Face Space (this README): open the **App** tab above after the Space finishes building.
+Deploy on **Render** (free): connect this GitHub repo as a Docker web service (`render.yaml` + `Dockerfile`).  
+Hugging Face Gradio Spaces now require PRO — Render is the free permanent host for this app.
 
 ## What you get
 

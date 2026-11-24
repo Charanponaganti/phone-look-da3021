@@ -1,0 +1,13 @@
+.git
+.venv
+venv
+__pycache__
+*.pyc
+.gradio
+data/external
+data/aligned
+outputs/enhanced
+outputs/figures
+*.gz
+.cursor
+agent-transcripts

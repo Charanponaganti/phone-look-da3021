@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: phone-look-da3021
+    runtime: docker
+    plan: free
+    healthCheckPath: /
+    envVars:
+      - key: PYTHONUNBUFFERED
+        value: "1"
