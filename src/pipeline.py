@@ -33,14 +33,14 @@ PRESETS = {
         "max_dL": 0.22,
     },
     "Balanced": {
-        "exposure": 0.45,
-        "colour": 0.70,
-        "cnn": 0.55,
-        "clarity": 0.45,
-        "dehaze": 0.70,
-        "max_da": 0.16,
-        "max_db": 0.16,
-        "max_dL": 0.26,
+        "exposure": 0.32,
+        "colour": 0.65,
+        "cnn": 0.50,
+        "clarity": 0.32,
+        "dehaze": 0.55,
+        "max_da": 0.14,
+        "max_db": 0.14,
+        "max_dL": 0.18,
     },
     "Punchy": {
         "exposure": 0.55,
@@ -136,16 +136,16 @@ SCENARIO_TUNING = {
     },
     "indoor": {
         "label": "Indoor / LED",
-        "exposure": 1.1,
-        "colour": 1.0,
-        "cnn": 0.95,
-        "clarity": 0.85,
-        "dehaze": 0.2,
-        "clahe": 0.35,
-        "strength": 1.0,
-        "max_dL": 1.1,
-        "max_da": 0.85,
-        "max_db": 0.85,
+        "exposure": 0.55,
+        "colour": 0.85,
+        "cnn": 0.7,
+        "clarity": 0.45,
+        "dehaze": 0.1,
+        "clahe": 0.12,
+        "strength": 0.75,
+        "max_dL": 0.7,
+        "max_da": 0.7,
+        "max_db": 0.7,
     },
     "vivid": {
         "label": "Vivid / colourful",
@@ -162,16 +162,16 @@ SCENARIO_TUNING = {
     },
     "detail": {
         "label": "Text / detail",
-        "exposure": 1.05,
-        "colour": 0.75,
-        "cnn": 0.7,
-        "clarity": 1.5,
-        "dehaze": 0.25,
-        "clahe": 0.55,
-        "strength": 1.05,
-        "max_dL": 1.15,
-        "max_da": 0.7,
-        "max_db": 0.7,
+        "exposure": 0.85,
+        "colour": 0.7,
+        "cnn": 0.65,
+        "clarity": 1.05,
+        "dehaze": 0.2,
+        "clahe": 0.3,
+        "strength": 0.9,
+        "max_dL": 0.9,
+        "max_da": 0.65,
+        "max_db": 0.65,
     },
     "default": {
         "label": "General",
@@ -219,6 +219,8 @@ def _lab_stats(lab: np.ndarray) -> dict:
         "std_L": float(L.std()),
         "p10_L": float(np.percentile(L, 10)),
         "p90_L": float(np.percentile(L, 90)),
+        "p99_L": float(np.percentile(L, 99)),
+        "clip_frac": float((L > 0.92).mean()),
         "mean_c": float(chroma.mean()),
         "p90_c": float(np.percentile(chroma, 90)),
         "mean_a": float(a.mean()),
@@ -263,10 +265,19 @@ def detect_scenario(lab: np.ndarray) -> tuple[str, dict, dict]:
         + 0.15 * np.clip(s["mean_a"] / 0.15, 0, 1)
     )
 
-    # Indoor — mid brightness, modest chroma, not outdoor-vivid / not dark
+    # Indoor — mid brightness, modest chroma; boost when tube/LED clips exist
     mid = 1.0 - abs(s["mean_L"] - 0.48) / 0.40
+    clip_cue = np.clip(s["clip_frac"] / 0.02, 0, 1)
     scores["indoor"] = float(
-        np.clip(0.55 * mid + 0.25 * (1 - hi_c) + 0.20 * (1 - dark) - 0.25 * scores["haze"], 0, 1)
+        np.clip(
+            0.45 * mid
+            + 0.2 * (1 - hi_c)
+            + 0.15 * (1 - dark)
+            + 0.35 * clip_cue
+            - 0.25 * scores["haze"],
+            0,
+            1,
+        )
     )
 
     # Vivid colourful (neutral / mixed hues — not specifically warm sunset)
@@ -274,21 +285,24 @@ def detect_scenario(lab: np.ndarray) -> tuple[str, dict, dict]:
         np.clip((s["mean_c"] - 0.22) / 0.25, 0, 1) * (1.0 - 0.5 * warm_bias)
     )
 
-    # Text / detail — high edge energy, not night
-    scores["detail"] = float(np.clip((s["edge"] - 0.08) / 0.12, 0, 1) * (1 - 0.5 * dark))
+    # Text / detail — high edge energy, not night; suppress when clipped lights
+    scores["detail"] = float(
+        np.clip((s["edge"] - 0.10) / 0.14, 0, 1) * (1 - 0.5 * dark) * (1 - 0.7 * clip_cue)
+    )
 
     # Daylight — bright, decent contrast, moderate chroma
     day = np.clip((s["mean_L"] - 0.42) / 0.28, 0, 1) * np.clip(s["std_L"] / 0.18, 0, 1)
     scores["daylight"] = float(day * (1 - 0.6 * scores["haze"]) * (1 - 0.4 * dark))
 
     scores["default"] = 0.12
+    scores["clip"] = float(s["clip_frac"])
 
     scenario = max(scores, key=scores.get)
 
     # Priority overrides (course-demo reliability)
     if scores["night"] > 0.55:
         scenario = "night"
-    elif scores["backlight"] > 0.55:
+    elif scores["backlight"] > 0.55 and s["clip_frac"] < 0.04:
         scenario = "backlight"
     elif (
         scores["sunset"] > 0.42
@@ -304,11 +318,18 @@ def detect_scenario(lab: np.ndarray) -> tuple[str, dict, dict]:
         and s["std_L"] < 0.20
         and scores["sunset"] < 0.4
         and scores["backlight"] < 0.45
+        and s["clip_frac"] < 0.015
     ):
         scenario = "haze"
+    elif scores["indoor"] > 0.4 and (s["clip_frac"] > 0.008 or scores["indoor"] >= scores.get(scenario, 0)):
+        scenario = "indoor"
     elif scores["portrait"] > 0.45 and scores["vivid"] < 0.8:
         scenario = "portrait"
-    elif scores["detail"] > 0.6 and scores["detail"] >= scores.get(scenario, 0) - 0.05:
+    elif (
+        scores["detail"] > 0.65
+        and s["clip_frac"] < 0.01
+        and scores["detail"] >= scores.get(scenario, 0) - 0.05
+    ):
         scenario = "detail"
     elif scores["daylight"] > 0.45 and scores["daylight"] >= scores.get(scenario, 0) - 0.05:
         scenario = "daylight"
@@ -323,14 +344,32 @@ def detect_scenario(lab: np.ndarray) -> tuple[str, dict, dict]:
 def _percentile_stretch_L(lab: np.ndarray, amount: float, haze: float = 0.0) -> np.ndarray:
     out = lab.copy().astype(np.float64)
     L = out[..., 0]
-    p_lo, p_hi = (4 - 2 * haze, 96 + 2 * haze)
+    # Keep highlight headroom — don't stretch into tube-light blowouts
+    p_lo = 5 - 1.5 * haze
+    p_hi = 92 + 2 * haze
     lo, hi = np.percentile(L, [p_lo, p_hi])
     if hi - lo < 1e-4:
         return out
     stretched = np.clip((L - lo) / (hi - lo), 0.0, 1.0)
-    contrast = 1.15 + 0.35 * haze
+    contrast = 1.06 + 0.22 * haze
     stretched = np.clip(0.5 + contrast * (stretched - 0.5), 0.0, 1.0)
+    # Soft highlight rolloff so bright lamps stay below clip
+    stretched = np.where(stretched > 0.88, 0.88 + 0.12 * (stretched - 0.88), stretched)
     out[..., 0] = (1.0 - amount) * L + amount * stretched
+    return out
+
+
+def _protect_highlights(src_lab: np.ndarray, pred_lab: np.ndarray) -> np.ndarray:
+    """Never brighten already-bright lamps/windows; soft-cap L near 1."""
+    out = pred_lab.astype(np.float64).copy()
+    src_L = src_lab[..., 0].astype(np.float64)
+    pred_L = out[..., 0]
+    # Where source is a highlight, pull prediction back toward source
+    w = np.clip((src_L - 0.78) / 0.18, 0.0, 1.0)
+    blended = (1.0 - w) * pred_L + w * np.minimum(pred_L, src_L)
+    # Extra soft ceiling
+    blended = np.where(blended > 0.94, 0.94 + 0.06 * np.tanh((blended - 0.94) / 0.06), blended)
+    out[..., 0] = blended
     return out
 
 
@@ -406,29 +445,29 @@ LOOK_MODES = {
         "blurb": "Phone → better-camera colour, tone & clarity",
         "force_scenario": None,
         "preset": "Balanced",
-        "dehaze_boost": 1.0,
+        "dehaze_boost": 0.85,
         "warm": 0.0,
         "cool": 0.0,
         "teal_orange": 0.0,
         "crush": 0.0,
         "fade": 0.0,
         "mono": False,
-        "clarity_boost": 1.0,
-        "max_d_scale": 1.0,
+        "clarity_boost": 0.85,
+        "max_d_scale": 0.9,
     },
     "Natural DSLR": {
         "blurb": "Subtle Canon-like grade — faithful, not punchy",
         "force_scenario": None,
         "preset": "Natural",
-        "dehaze_boost": 0.7,
+        "dehaze_boost": 0.55,
         "warm": 0.02,
         "cool": 0.0,
         "teal_orange": 0.0,
         "crush": 0.0,
         "fade": 0.0,
         "mono": False,
-        "clarity_boost": 0.85,
-        "max_d_scale": 0.85,
+        "clarity_boost": 0.7,
+        "max_d_scale": 0.75,
     },
     "Vivid DSLR": {
         "blurb": "Stronger colour & micro-contrast like a flagship phone/ISP",
@@ -565,8 +604,12 @@ def enhance_auto(
 
     s = float(np.clip(strength * tune["strength"], 0.2, 1.25))
     hz = scores.get("haze", 0.0)
+    clip_frac = float(scores.get("clip", 0.0))
     if scenario == "haze" or look == "Clear haze":
         hz = max(hz, 0.65)
+    # Strong lamps/windows → dial back lift so we don't nuke highlight detail
+    if clip_frac > 0.008:
+        s *= float(np.clip(1.0 - 2.5 * clip_frac, 0.45, 1.0))
 
     dehaze_amt = (
         cfg["dehaze"]
@@ -579,37 +622,50 @@ def enhance_auto(
         dehaze_amt *= 0.5
         if hz < 0.45:
             dehaze_amt = 0.0
+    if scenario == "indoor":
+        dehaze_amt = 0.0
     work_bgr = _soft_dehaze_bgr(bgr, float(np.clip(dehaze_amt, 0, 1)))
 
     lab = bgr_to_lab01(work_bgr).astype(np.float64)
+    exp_amt = cfg["exposure"] * s * tune["exposure"]
+    if clip_frac > 0.008:
+        exp_amt *= 0.55
     lab = _percentile_stretch_L(
         lab,
-        cfg["exposure"] * s * tune["exposure"],
+        exp_amt,
         haze=hz if scenario == "haze" else 0.15 * hz,
     )
-    lab = _clahe_L(lab, float(np.clip(tune["clahe"] * s, 0, 1)))
+    clahe_amt = float(np.clip(tune["clahe"] * s, 0, 1))
+    if clip_frac > 0.01:
+        clahe_amt *= 0.4
+    lab = _clahe_L(lab, clahe_amt)
     lab = _blend_colour(lab, cfg["colour"] * s * tune["colour"])
     lab = _apply_cnn(lab, cfg["cnn"] * s * tune["cnn"])
     clarity = cfg["clarity"] * s * tune["clarity"] * float(look_cfg.get("clarity_boost", 1.0))
-    if tune["clahe"] * s > 0.4:
-        clarity *= 0.75
+    if tune["clahe"] * s > 0.4 or clip_frac > 0.01:
+        clarity *= 0.65
     lab = _unsharp_L(
         lab,
         clarity,
-        radius=1.15 + (0.5 if scenario in {"haze", "detail", "backlight"} else 0.0),
+        radius=1.15 + (0.5 if scenario in {"haze", "detail"} else 0.0),
     )
 
     lab = _apply_look_finish(lab, look_cfg, amount=float(np.clip(strength, 0.0, 1.0)))
+    lab = _protect_highlights(src_lab, lab)
 
     d_scale = float(look_cfg.get("max_d_scale", 1.0))
+    max_dL = cfg["max_dL"] * tune["max_dL"] * d_scale
+    if clip_frac > 0.008:
+        max_dL *= 0.65
     lab = stabilize_lab(
         src_lab,
         lab,
         strength=1.0,
-        max_dL=cfg["max_dL"] * tune["max_dL"] * d_scale,
+        max_dL=max_dL,
         max_da=cfg["max_da"] * tune["max_da"] * d_scale,
         max_db=cfg["max_db"] * tune["max_db"] * d_scale,
     )
+    lab = _protect_highlights(src_lab, lab)
     if look_cfg.get("mono"):
         # Re-force mono after stabilize (stabilize pulls toward colour src)
         grey = lab[..., 0:1]
