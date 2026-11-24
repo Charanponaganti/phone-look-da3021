@@ -226,7 +226,8 @@ def main():
     if not pairs:
         raise SystemExit("Could not pair images automatically. Inspect data/external/dped_sample/extracted/")
 
-    install_pairs(pairs, limit=21)
+    # Install every iPhone patch available (better TinyCNN / ladder training)
+    install_pairs(pairs, limit=max(len(pairs), 1))
     print("\nNext commands:")
     print("  python -m src.align_pairs")
     print("  python -m src.fit_models")

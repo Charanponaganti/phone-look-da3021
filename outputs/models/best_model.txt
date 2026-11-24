@@ -1,1 +1,1 @@
-tone_curves.json
+tiny_cnn.json

@@ -1,0 +1,40 @@
+{
+  "kind": "tiny_cnn",
+  "payload": {
+    "weights": "tiny_cnn.pt",
+    "channels": 32,
+    "depth": 6,
+    "res_scale": 0.25,
+    "patch": 64,
+    "epochs": 40,
+    "n_patches": 735,
+    "residual": true,
+    "version": 2
+  },
+  "meta": {
+    "train": [
+      "dped12",
+      "dped08",
+      "dped21",
+      "dped04",
+      "dped01",
+      "dped18",
+      "dped07",
+      "dped13",
+      "dped20",
+      "dped03",
+      "dped05",
+      "dped19",
+      "dped02",
+      "dped15",
+      "dped10"
+    ],
+    "test": [
+      "dped17",
+      "dped11",
+      "dped16",
+      "dped09",
+      "dped14"
+    ]
+  }
+}

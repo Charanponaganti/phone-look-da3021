@@ -1,4 +1,4 @@
-"""Fit tone / matrix / root-polynomial models on aligned pairs."""
+"""Fit course transforms + neural nets on aligned pairs."""
 
 from __future__ import annotations
 
@@ -9,7 +9,14 @@ import cv2
 import numpy as np
 
 from .io_utils import bgr_to_lab01, sample_pixels
-from .models import fit_color_matrix, fit_root_poly, fit_tone_curves, save_model
+from .models import (
+    fit_color_matrix,
+    fit_lab_mlp,
+    fit_root_poly,
+    fit_root_poly_mlp,
+    fit_tone_curves,
+    save_model,
+)
 from .paths import ALIGNED, MODELS
 
 
@@ -57,23 +64,63 @@ def main():
     Xtr, Ytr = gather_pixels(train_ids)
     print(f"Training pixels: {len(Xtr)}")
 
-    # Model ladder
-    tone = fit_tone_curves(Xtr, Ytr, degree=3)
-    save_model(MODELS / "tone_curves.json", "tone_curves", tone, {"train": train_ids, "test": test_ids})
+    meta = {"train": train_ids, "test": test_ids}
+
+    # --- Course transforms ---
+    tone = fit_tone_curves(Xtr, Ytr, degree_L=3)
+    save_model(MODELS / "tone_curves.json", "tone_curves", tone, meta)
+    print("Saved tone_curves.json")
 
     mat = fit_color_matrix(Xtr, Ytr)
-    save_model(MODELS / "color_matrix.json", "color_matrix", mat, {"train": train_ids, "test": test_ids})
+    save_model(MODELS / "color_matrix.json", "color_matrix", mat, meta)
+    print("Saved color_matrix.json")
 
-    for deg, alpha in [(2, 1.0), (2, 10.0), (3, 1.0), (3, 10.0)]:
+    # Prefer stronger ridge — more stable OOD colour
+    for deg, alpha in [(2, 10.0), (2, 50.0), (3, 10.0), (3, 50.0)]:
         rp = fit_root_poly(Xtr, Ytr, degree=deg, alpha=alpha)
         name = f"root_poly_d{deg}_a{alpha:g}.json"
-        save_model(
-            MODELS / name,
-            "root_poly",
-            rp,
-            {"train": train_ids, "test": test_ids, "degree": deg, "alpha": alpha},
-        )
+        save_model(MODELS / name, "root_poly", rp, {**meta, "degree": deg, "alpha": alpha})
         print(f"Saved {name}")
+
+    # --- Neural nets (CPU MLP) ---
+    # Cap pixels so Adam stays responsive on laptop CPU
+    rng = np.random.default_rng(0)
+    n_nn = min(len(Xtr), 80_000)
+    idx = rng.choice(len(Xtr), size=n_nn, replace=False)
+    Xnn, Ynn = Xtr[idx], Ytr[idx]
+
+    print(f"Fitting Lab MLP on {len(Xnn)} pixels…")
+    mlp = fit_lab_mlp(Xnn, Ynn, hidden=(64, 32), max_iter=120)
+    save_model(MODELS / "lab_mlp.json", "lab_mlp", mlp, {**meta, "hidden": [64, 32]})
+    print(f"Saved lab_mlp.json (iters={mlp['n_iter']})")
+
+    print(f"Fitting root-poly + MLP on {len(Xnn)} pixels…")
+    rp_mlp = fit_root_poly_mlp(Xnn, Ynn, degree=2, hidden=(64, 32), max_iter=120)
+    save_model(
+        MODELS / "root_poly_mlp.json",
+        "root_poly_mlp",
+        rp_mlp,
+        {**meta, "degree": 2, "hidden": [64, 32]},
+    )
+    print(f"Saved root_poly_mlp.json (iters={rp_mlp['n_iter']})")
+
+    # --- Tiny residual CNN v2 (DPED-style local filters, CPU) ---
+    print("Fitting TinyResCNN v2 (full patches + multi-scale, CPU)…")
+    from .tiny_cnn import fit_tiny_cnn
+
+    train_dirs = [ALIGNED / sid for sid in train_ids]
+    cnn_payload = fit_tiny_cnn(
+        train_dirs,
+        out_weights=MODELS / "tiny_cnn.pt",
+        channels=32,
+        depth=6,
+        patch=64,
+        epochs=40,
+        batch_size=16,
+        n_per_scene=16,
+    )
+    save_model(MODELS / "tiny_cnn.json", "tiny_cnn", cnn_payload, meta)
+    print("Saved tiny_cnn.json + tiny_cnn.pt")
 
     split = {"train": train_ids, "test": test_ids}
     (MODELS / "split.json").write_text(json.dumps(split, indent=2), encoding="utf-8")

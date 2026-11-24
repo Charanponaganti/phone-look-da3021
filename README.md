@@ -1,27 +1,32 @@
 ---
 title: Phone Look DA3021
 emoji: 📷
-colorFrom: indigo
-colorTo: pink
+colorFrom: yellow
+colorTo: gray
 sdk: gradio
 sdk_version: 4.44.1
 app_file: app.py
 pinned: false
 license: mit
-short_description: CPU phone→Canon colour/tone look from DPED pairs
+short_description: Auto phone→Canon look — course transforms + TinyResCNN
 ---
 
-# Phone Look — DA3021
+# Phone Look Studio — DA3021
 
-CPU pipeline that learns a “better camera” colour/tone look from paired photos (phone → reference), then serves it in a Gradio upload app.
+CPU pipeline that learns a better-camera colour/tone look from paired photos, then serves it in a **Gradio Studio** app.
 
-Trained on **DPED iPhone→Canon** sample patches. Swap in your own Night/HDR pairs anytime.
+## What you get
 
-## Live demo
+**Auto cascade (default in the app)**
+1. Mild L exposure stretch  
+2. Course colour (tone curves on L + colour matrix chroma)  
+3. TinyResCNN local residual (DPED-style, CPU)  
+4. L-channel clarity (unsharp)  
+5. Chroma/luma residual clamps + adaptive strength on high-saturation images  
 
-Deployed as a Hugging Face Space (see repo / Space link after deploy).
+**Single-model ladder** (for the course story): tone → matrix → root-poly → Lab MLP → root-poly MLP → TinyCNN  
 
-## Quick start (local)
+## Quick start
 
 ```bash
 git clone https://github.com/Charanponaganti/phone-look-da3021.git
@@ -30,34 +35,35 @@ pip install -r requirements.txt
 python app.py
 ```
 
-Open the Gradio URL, upload a photo, pick a model.
+Open the local Gradio URL. Use **Auto + Balanced** for demos; drop Strength if a sunset still looks strong.
 
-Shipped default model: `tone_curves.json`.
-
-## Full pipeline
+## Retrain
 
 ```bash
-python -m src.download_dped_sample   # optional
+python -m src.download_dped_sample   # optional refresh
 python -m src.align_pairs
 python -m src.fit_models
-python -m src.evaluate
+python -m src.evaluate               # composite = ΔE + chroma penalty; ranks Auto too
 python -m src.make_figures
 python app.py
 ```
 
-Own pairs go in `data/raw/pairs/` as `sceneXX_src.jpg` + `sceneXX_tgt.jpg`. See `Capture_Checklist.pdf`.
+Own pairs: `data/raw/pairs/sceneXX_src.jpg` + `sceneXX_tgt.jpg` (see `Capture_Checklist.pdf`).
 
 ## Layout
 
 | Path | Role |
 |------|------|
-| `app.py` | Gradio / Spaces entrypoint |
-| `src/` | align, fit, evaluate, apply, app logic |
-| `data/raw/pairs/` | training pairs |
-| `outputs/models/` | trained JSON models |
+| `app.py` / `src/app.py` | Gradio Studio |
+| `src/pipeline.py` | Auto cascade |
+| `src/tiny_cnn.py` | TinyResCNN v2 |
+| `src/models.py` | Course transforms + MLPs |
+| `outputs/models/` | Trained JSON + `tiny_cnn.pt` |
+| `assets/examples/` | Demo thumbs |
 
-## CLI enhance
+## CLI
 
 ```bash
-python -m src.apply path/to/photo.jpg
+python -m src.apply path/to/photo.jpg --mode auto --preset Balanced
+python -m src.apply path/to/photo.jpg --mode model -m outputs/models/tone_curves.json
 ```

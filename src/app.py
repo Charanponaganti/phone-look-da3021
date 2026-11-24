@@ -1,13 +1,14 @@
 """
-Gradio upload app: drop a photo → get the learned look.
+Phone Look Studio — Gradio Blocks UI.
 
 Run:
   python -m src.app
-  # or (Spaces / root entrypoint)
   python app.py
 """
 
 from __future__ import annotations
+
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -15,7 +16,10 @@ from PIL import Image
 
 from .apply import enhance_bgr, get_best_model_path
 from .models import load_model
-from .paths import MODELS
+from .paths import MODELS, ROOT
+from .pipeline import list_presets
+
+EXAMPLES_DIR = ROOT / "assets" / "examples"
 
 
 def _pil_to_bgr(img: Image.Image) -> np.ndarray:
@@ -24,8 +28,7 @@ def _pil_to_bgr(img: Image.Image) -> np.ndarray:
 
 
 def _bgr_to_pil(bgr: np.ndarray) -> Image.Image:
-    rgb = bgr[:, :, ::-1]
-    return Image.fromarray(rgb)
+    return Image.fromarray(bgr[:, :, ::-1])
 
 
 def _list_models() -> list[str]:
@@ -36,14 +39,20 @@ def _list_models() -> list[str]:
     )
 
 
-def enhance_pil(img: Image.Image, model_obj, max_side: int = 1600) -> Image.Image:
-    bgr = _pil_to_bgr(img)
+def _resize_max(bgr: np.ndarray, max_side: int = 1400) -> np.ndarray:
     h, w = bgr.shape[:2]
-    if max(h, w) > max_side:
-        scale = max_side / max(h, w)
-        bgr = cv2.resize(bgr, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
-    out = enhance_bgr(bgr, model_obj)
-    return _bgr_to_pil(out)
+    if max(h, w) <= max_side:
+        return bgr
+    scale = max_side / max(h, w)
+    return cv2.resize(bgr, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+
+
+def _example_paths() -> list[str]:
+    if not EXAMPLES_DIR.exists():
+        return []
+    return sorted(str(p) for p in EXAMPLES_DIR.glob("*.png")) + sorted(
+        str(p) for p in EXAMPLES_DIR.glob("*.jpg")
+    )
 
 
 def build_demo():
@@ -51,54 +60,117 @@ def build_demo():
 
     model_names = _list_models()
     try:
-        default_name = get_best_model_path().name
+        fallback_model = get_best_model_path().name
     except FileNotFoundError:
-        default_name = model_names[0] if model_names else None
+        fallback_model = model_names[0] if model_names else None
 
     cache: dict[str, dict] = {}
 
     def _get_model(name: str):
         if name not in cache:
-            path = MODELS / name
-            if not path.exists():
-                raise FileNotFoundError(name)
-            cache[name] = load_model(path)
+            cache[name] = load_model(MODELS / name)
         return cache[name]
 
-    def run(photo, model_name: str):
+    def run(photo, mode, model_name, preset, strength):
         if photo is None:
-            return None
-        if not model_names:
-            raise gr.Error("No trained models in outputs/models/.")
-        name = model_name or default_name
+            return None, None
         if not isinstance(photo, Image.Image):
             photo = Image.fromarray(photo)
-        return enhance_pil(photo, _get_model(name))
+        bgr = _resize_max(_pil_to_bgr(photo))
+        if mode == "Auto":
+            out = enhance_bgr(bgr, mode="auto", strength=float(strength), preset=preset)
+        else:
+            if not model_names:
+                raise gr.Error("No trained models found.")
+            name = model_name or fallback_model
+            out = enhance_bgr(
+                bgr,
+                model_obj=_get_model(name),
+                strength=float(strength),
+                mode="model",
+            )
+        return _bgr_to_pil(bgr), _bgr_to_pil(out)
 
-    return gr.Interface(
-        fn=run,
-        inputs=[
-            gr.Image(type="pil", label="Upload phone photo"),
-            gr.Dropdown(
-                choices=model_names or ["(none)"],
-                value=default_name,
-                label="Model",
-            ),
-        ],
-        outputs=gr.Image(type="pil", label="Enhanced look"),
-        title="Phone Look — DA3021",
-        description=(
-            "CPU colour/tone transform learned from paired iPhone→Canon (DPED) patches. "
-            f"Default model: **{default_name or 'none'}**. "
-            "Upload any phone photo to try the look."
-        ),
-        flagging_mode="never",
+    def compare(photo, strength):
+        if photo is None:
+            return []
+        if not isinstance(photo, Image.Image):
+            photo = Image.fromarray(photo)
+        bgr = _resize_max(_pil_to_bgr(photo), max_side=1000)
+        gallery = []
+        for preset in ("Natural", "Balanced", "Punchy"):
+            out = enhance_bgr(bgr, mode="auto", strength=float(strength), preset=preset)
+            gallery.append((_bgr_to_pil(out), preset))
+        if fallback_model and (MODELS / fallback_model).exists():
+            out = enhance_bgr(
+                bgr,
+                model_obj=_get_model(fallback_model),
+                strength=float(strength),
+                mode="model",
+            )
+            gallery.append((_bgr_to_pil(out), f"Single: {fallback_model}"))
+        return gallery
+
+    examples = _example_paths()
+
+    with gr.Blocks(title="Phone Look Studio") as demo:
+        gr.Markdown(
+            """
+# Phone Look Studio — DA3021
+**Auto** cascade: exposure → course colour (tone L + matrix) → TinyResCNN → L-clarity,  
+with chroma clamps so sunsets/portraits stay sane. Or pick a single ladder model.
+            """
+        )
+        with gr.Row():
+            with gr.Column(scale=1):
+                photo = gr.Image(type="pil", label="Upload phone photo")
+                mode = gr.Radio(["Auto", "Single model"], value="Auto", label="Mode")
+                preset = gr.Dropdown(list_presets(), value="Balanced", label="Auto preset")
+                model_name = gr.Dropdown(
+                    choices=model_names or ["(none)"],
+                    value=fallback_model,
+                    label="Single model",
+                )
+                strength = gr.Slider(0.0, 1.0, value=0.75, step=0.05, label="Strength")
+                run_btn = gr.Button("Enhance", variant="primary")
+                cmp_btn = gr.Button("Compare presets")
+            with gr.Column(scale=2):
+                with gr.Row():
+                    before = gr.Image(type="pil", label="Before")
+                    after = gr.Image(type="pil", label="After")
+                gallery = gr.Gallery(label="Compare strip", columns=4, height=280)
+
+        if examples:
+            gr.Examples(examples=examples, inputs=photo, label="Example DPED patches")
+
+        run_btn.click(run, [photo, mode, model_name, preset, strength], [before, after])
+        photo.change(run, [photo, mode, model_name, preset, strength], [before, after])
+        cmp_btn.click(compare, [photo, strength], [gallery])
+
+    return demo
+
+
+def _studio_theme():
+    import gradio as gr
+
+    return gr.themes.Soft(
+        primary_hue="amber",
+        secondary_hue="stone",
+        neutral_hue="stone",
+        font=gr.themes.GoogleFont("DM Sans"),
+    ).set(
+        body_background_fill="#1a1a1a",
+        block_background_fill="#242424",
+        block_border_color="#3a3a3a",
+        body_text_color="#f2efe8",
+        button_primary_background_fill="#d4a017",
+        button_primary_text_color="#1a1a1a",
     )
 
 
 def main():
     demo = build_demo()
-    demo.launch(server_name="0.0.0.0", server_port=7860)
+    demo.launch(server_name="0.0.0.0", server_port=7860, theme=_studio_theme())
 
 
 if __name__ == "__main__":
