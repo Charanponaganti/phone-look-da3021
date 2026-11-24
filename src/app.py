@@ -180,8 +180,11 @@ def _studio_theme():
 
 
 def main():
+    import os
+
     demo = build_demo()
-    demo.launch(server_name="0.0.0.0", server_port=7860, theme=_studio_theme())
+    port = int(os.environ.get("PORT", "7860"))
+    demo.launch(server_name="0.0.0.0", server_port=port, theme=_studio_theme())
 
 
 if __name__ == "__main__":
