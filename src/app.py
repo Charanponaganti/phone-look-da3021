@@ -274,6 +274,28 @@ STUDIO_CSS = """
   font-weight: 600 !important;
 }
 
+/* Gradio error/info toasts: dark theme made light text on white unreadable */
+.toast-wrap,
+.toast-body,
+div.toast,
+[class*="toast"] {
+  color: #111111 !important;
+  -webkit-text-fill-color: #111111 !important;
+}
+.toast-wrap .toast-title,
+.toast-body .toast-title,
+.toast .toast-title {
+  color: #111111 !important;
+  font-weight: 700 !important;
+}
+.toast-wrap .toast-text,
+.toast-body span,
+.toast p,
+.toast li {
+  color: #222222 !important;
+  opacity: 1 !important;
+}
+
 @media (max-width: 900px) {
   #look-tiles .wrap { grid-template-columns: 1fr !important; }
   #phone-look .pl-top { flex-direction: column; align-items: flex-start; }
@@ -441,8 +463,21 @@ def build_demo():
         show_diff = bool(has_result and view == VIEW_DIFF)
         return show_slider, show_side, show_diff
 
+    def _safe_look(look: str | None) -> str:
+        if look in looks:
+            return look  # type: ignore[return-value]
+        return "Premium camera"
+
+    def _safe_preset(preset: str | None) -> str:
+        if preset in presets:
+            return preset  # type: ignore[return-value]
+        return "Balanced"
+
     def process(photo, look, strength, preset, view):
         """Single enhance path — Auto cascade only."""
+        look_name = _safe_look(look)
+        preset_name = _safe_preset(preset)
+
         if photo is None:
             show_slider, show_side, show_diff = _view_flags(view, False)
             return (
@@ -461,12 +496,11 @@ def build_demo():
 
         pil = _downscale_pil(_as_pil(photo), 1000)
         bgr = _pil_to_bgr(pil)
-        look_name = look or "Premium camera"
         out, info = enhance_bgr(
             bgr,
             mode="auto",
             strength=float(strength),
-            preset=preset or "Balanced",
+            preset=preset_name,
             look=look_name,
             return_info=True,
         )
@@ -574,14 +608,16 @@ def build_demo():
                 )
 
         with gr.Column(elem_classes=["pl-stage"]):
-            photo = gr.Image(
-                type="pil",
-                label="Drop a phone photo · or click to browse",
-                height=360,
-                sources=["upload", "clipboard"],
-                elem_classes=["pl-drop"],
-                format="jpeg",
-            )
+            # Wrapper gets compact/drop classes — never put `photo` in process outputs
+            # (Gradio input+output on same Image can scramble sibling Dropdown values).
+            with gr.Column(elem_classes=["pl-drop"]) as upload_col:
+                photo = gr.Image(
+                    type="pil",
+                    label="Drop a phone photo · or click to browse",
+                    height=360,
+                    sources=["upload", "clipboard"],
+                    format="jpeg",
+                )
             if use_slider:
                 slider = gr.ImageSlider(
                     label="Split seam · drag to compare",
@@ -645,6 +681,9 @@ def build_demo():
                 value="Premium camera",
                 label="Look",
                 show_label=False,
+                elem_id="look-select",
+                # Accept stale client values (e.g. legacy "Auto") then sanitize in process.
+                allow_custom_value=True,
             )
             profile = gr.Radio(
                 list(PROFILE_TILES.keys()),
@@ -687,7 +726,7 @@ def build_demo():
             )
 
         outs = [
-            photo,
+            upload_col,
             slider,
             before,
             after,
