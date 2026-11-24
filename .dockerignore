@@ -4,10 +4,23 @@ venv
 __pycache__
 *.pyc
 .gradio
-data/external
-data/aligned
-outputs/enhanced
-outputs/figures
-*.gz
 .cursor
 agent-transcripts
+
+# Heavy training / capture data — not needed on Render
+data/raw
+data/aligned
+data/external
+*.gz
+
+# Local outputs except shipped models
+outputs/enhanced
+outputs/figures
+outputs/models/*.pt
+outputs/models/*.pt.bak
+
+deck/
+*.md
+!README.md
+CAPTURE_CHECKLIST.md
+Capture_Checklist.pdf

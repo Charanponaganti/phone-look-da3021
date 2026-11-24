@@ -1,5 +1,5 @@
 """
-Phone Look Studio — Gradio UI matching the dark optical-LUT mock.
+Phone Look Studio — Gradio 6 UI (dark optical-LUT mock, Render-safe).
 
 Run:
   python -m src.app
@@ -8,26 +8,30 @@ Run:
 
 from __future__ import annotations
 
+import tempfile
 from pathlib import Path
 
 import cv2
 import numpy as np
 from PIL import Image
 
-from .apply import enhance_bgr, get_best_model_path
+from .apply import enhance_bgr
 from .io_utils import bgr_to_lab01
-from .models import load_model
-from .paths import MODELS, ROOT
+from .paths import ROOT
 from .pipeline import list_looks, list_presets
 
 EXAMPLES_DIR = ROOT / "assets" / "examples"
 
-# Mock palette: charcoal + amber, instrument UI
+# Quick tiles → look name (dropdown remains source of truth)
 PROFILE_TILES = {
-    "Flagship": ("Premium camera", "Balanced"),
-    "Summicron": ("Natural DSLR", "Micro-Con"),
-    "Positive": ("Vivid DSLR", "Rich Warm"),
+    "Flagship": "Premium camera",
+    "Summicron": "Natural DSLR",
+    "Positive": "Vivid DSLR",
 }
+
+VIEW_SPLIT = "Split Seam"
+VIEW_SIDE = "Side-by-Side"
+VIEW_DIFF = "Difference"
 
 STUDIO_CSS = """
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap');
@@ -35,39 +39,28 @@ STUDIO_CSS = """
 :root {
   --bg: #0e0e0e;
   --panel: #141414;
-  --panel-2: #1a1a1a;
   --ink: #f5f5f5;
   --muted: #8a8a8a;
   --line: #2a2a2a;
   --amber: #e8a54b;
-  --amber-dim: #c4893a;
   --amber-ink: #111111;
 }
 
-* { box-shadow: none !important; }
-
-html, body, .gradio-container, .main, footer, .wrap {
+#phone-look,
+#phone-look .main {
   background: var(--bg) !important;
   color: var(--ink) !important;
   font-family: Inter, system-ui, sans-serif !important;
-  font-size: 14px !important;
-}
-
-.gradio-container {
   max-width: 100% !important;
   width: 100% !important;
   margin: 0 !important;
   padding: 0 !important;
 }
 
-.gradio-container .main, div.main {
-  max-width: 100% !important;
-  width: 100% !important;
-  padding: 0 !important;
-}
+#phone-look footer { display: none !important; }
 
 /* ---- header ---- */
-.pl-top {
+#phone-look .pl-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -77,21 +70,22 @@ html, body, .gradio-container, .main, footer, .wrap {
   background: #0c0c0c;
 }
 
-.pl-brand {
+#phone-look .pl-brand {
   display: flex;
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
 }
 
-.pl-hex {
-  width: 22px; height: 22px;
+#phone-look .pl-hex {
+  width: 22px;
+  height: 22px;
   background: var(--amber);
   clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
   flex-shrink: 0;
 }
 
-.pl-title {
+#phone-look .pl-title {
   margin: 0;
   font-size: 1.05rem;
   font-weight: 700;
@@ -99,69 +93,38 @@ html, body, .gradio-container, .main, footer, .wrap {
   letter-spacing: -0.01em;
 }
 
-.pl-crumb {
+#phone-look .pl-crumb {
   margin: 0;
   font-family: "IBM Plex Mono", monospace;
   font-size: 11px;
   letter-spacing: 0.04em;
   color: var(--muted);
 }
-.pl-crumb b { color: var(--amber); font-weight: 600; }
+#phone-look .pl-crumb b { color: var(--amber); font-weight: 600; }
 
-.pl-top-actions { display: flex; gap: 8px; }
-
-/* ---- toolbar ---- */
-.pl-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 20px;
+/* ---- bar / sheet ---- */
+#phone-look .pl-bar {
+  padding: 10px 20px !important;
   border-bottom: 1px solid var(--line);
   background: var(--bg);
 }
 
-.pl-src-flag {
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-/* ---- stage: dot grid ---- */
-.pl-stage {
-  position: relative;
-  min-height: 52vh;
-  padding: 18px 20px 8px !important;
+#phone-look .pl-stage {
+  min-height: 48vh;
+  padding: 16px 20px 10px !important;
   background-color: #101010 !important;
   background-image: radial-gradient(rgba(255,255,255,0.06) 1px, transparent 1px) !important;
   background-size: 18px 18px !important;
   border-bottom: 1px solid var(--line);
 }
 
-.pl-stage .block {
-  background: transparent !important;
-  border: none !important;
-}
-
-/* upload drop look */
-.pl-stage .image-container,
-.pl-drop .image-container {
-  border: 1px dashed #3a3a3a !important;
-  border-radius: 14px !important;
-  background: rgba(0,0,0,0.25) !important;
-  min-height: 360px !important;
-}
-
-/* ---- bottom sheet ---- */
-.pl-sheet {
+#phone-look .pl-sheet {
   background: var(--panel) !important;
   border-top: 1px solid var(--line);
-  padding: 6px 20px 20px !important;
+  padding: 8px 20px 22px !important;
 }
 
-.pl-step {
+#phone-look .pl-step {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -172,33 +135,59 @@ html, body, .gradio-container, .main, footer, .wrap {
   text-transform: uppercase;
   color: var(--muted);
 }
-.pl-step .tag { color: var(--amber); font-weight: 600; }
+#phone-look .pl-step .tag { color: var(--amber); font-weight: 600; }
 
-/* labels */
-.block .label-wrap,
-.block .label-wrap span,
-.block-label,
-.block > label,
-label {
+#phone-look .pl-src {
+  margin: 0;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding-top: 0.55rem;
+}
+#phone-look .pl-src.on { color: var(--amber); }
+
+#phone-look .pl-status {
+  margin: 10px 0 0;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+#phone-look .pl-status strong { color: var(--amber); font-weight: 600; }
+#phone-look .pl-status .pl-delta { color: #bdbdbd; margin-left: 0.5rem; }
+
+/* Dropzone vs compact replace strip */
+#phone-look .pl-drop .image-container {
+  border: 1px dashed #3a3a3a !important;
+  border-radius: 14px !important;
+  background: rgba(0,0,0,0.25) !important;
+  min-height: 340px !important;
+}
+#phone-look .pl-compact .image-container {
+  border: 1px solid var(--line) !important;
+  border-radius: 10px !important;
+  min-height: 88px !important;
+  max-height: 110px !important;
+}
+
+/* Scoped labels / inputs — not global */
+#phone-look .label-wrap span,
+#phone-look .block-label {
   color: var(--muted) !important;
   background: transparent !important;
-  border: none !important;
   font-family: "IBM Plex Mono", monospace !important;
   font-size: 11px !important;
-  font-weight: 500 !important;
   letter-spacing: 0.06em !important;
   text-transform: uppercase !important;
   opacity: 1 !important;
 }
 
-.block {
-  background: transparent !important;
-  border: none !important;
-  padding: 0 !important;
-}
-
-input, textarea, select,
-input[type="number"], input[type="text"] {
+#phone-look input[type="number"],
+#phone-look input[type="text"],
+#phone-look textarea,
+#phone-look select {
   color: var(--ink) !important;
   background: #121212 !important;
   border: 1px solid #333 !important;
@@ -208,28 +197,25 @@ input[type="number"], input[type="text"] {
   font-weight: 500 !important;
   -webkit-text-fill-color: var(--ink) !important;
   opacity: 1 !important;
-  min-height: 2.4rem !important;
 }
 
-.slider input[type="number"] {
+#phone-look .slider input[type="number"] {
   width: 3.8rem !important;
   min-width: 3.8rem !important;
   background: #1a1a1a !important;
-  border: 1px solid #333 !important;
+  color: var(--ink) !important;
+  -webkit-text-fill-color: var(--ink) !important;
   text-align: center !important;
 }
 
-/* segmented view */
-[role="radiogroup"] {
-  display: inline-flex !important;
-  gap: 0 !important;
+/* View pills — Gradio 6: target by elem_id, not role=radiogroup */
+#view-mode {
   background: #161616 !important;
   border: 1px solid #2e2e2e !important;
   border-radius: 999px !important;
   padding: 3px !important;
 }
-
-[role="radiogroup"] label {
+#view-mode label {
   color: var(--muted) !important;
   background: transparent !important;
   border-radius: 999px !important;
@@ -238,82 +224,59 @@ input[type="number"], input[type="text"] {
   font-family: Inter, sans-serif !important;
   font-size: 12px !important;
   font-weight: 500 !important;
-  letter-spacing: 0 !important;
   text-transform: none !important;
+  letter-spacing: 0 !important;
 }
-
-[role="radiogroup"] label:has(input:checked) {
+#view-mode label:has(input:checked) {
   background: #2a2a2a !important;
   color: #fff !important;
 }
 
-/* profile tiles */
-.pl-tiles [role="radiogroup"] {
+/* Profile tiles */
+#look-tiles .wrap {
   display: grid !important;
   grid-template-columns: repeat(3, 1fr) !important;
-  width: 100% !important;
-  border-radius: 10px !important;
-  padding: 0 !important;
   gap: 8px !important;
-  background: transparent !important;
-  border: none !important;
 }
-
-.pl-tiles [role="radiogroup"] label {
+#look-tiles label {
   border: 1px solid #2e2e2e !important;
   border-radius: 10px !important;
   background: #151515 !important;
   color: #9a9a9a !important;
   padding: 12px 14px !important;
   text-align: left !important;
+  font-family: Inter, sans-serif !important;
   font-size: 13px !important;
   font-weight: 600 !important;
   text-transform: none !important;
   letter-spacing: 0 !important;
-  font-family: Inter, sans-serif !important;
 }
-
-.pl-tiles [role="radiogroup"] label:has(input:checked) {
+#look-tiles label:has(input:checked) {
   border-color: var(--amber) !important;
   color: #fff !important;
   background: #1a1610 !important;
 }
 
-button {
-  font-family: Inter, sans-serif !important;
-  font-size: 13px !important;
-  font-weight: 600 !important;
-  min-height: 2.55rem !important;
-  border-radius: 10px !important;
-}
-
-button.primary, .gr-button-primary {
+#phone-look button.primary,
+#phone-look .primary {
   background: var(--amber) !important;
   color: var(--amber-ink) !important;
   border: 1px solid var(--amber) !important;
+  border-radius: 10px !important;
+  font-weight: 600 !important;
 }
-
-button.secondary, .gr-button-secondary {
+#phone-look button.secondary,
+#phone-look .secondary {
   background: #171717 !important;
   color: #d0d0d0 !important;
   border: 1px solid #333 !important;
+  border-radius: 10px !important;
+  font-weight: 600 !important;
 }
-
-.pl-status {
-  margin: 8px 0 0;
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 12px;
-  color: var(--muted);
-  line-height: 1.5;
-}
-.pl-status strong { color: var(--amber); font-weight: 600; }
-.pl-status .pl-delta { color: #bdbdbd; margin-left: 0.5rem; }
-
-footer { display: none !important; }
 
 @media (max-width: 900px) {
-  .pl-top { flex-direction: column; align-items: flex-start; }
-  .pl-tiles [role="radiogroup"] { grid-template-columns: 1fr !important; }
+  #look-tiles .wrap { grid-template-columns: 1fr !important; }
+  #phone-look .pl-top { flex-direction: column; align-items: flex-start; }
 }
 """
 
@@ -335,39 +298,17 @@ def _as_pil(img) -> Image.Image | None:
     return Image.fromarray(img).convert("RGB")
 
 
-def _list_models() -> list[str]:
-    return sorted(
-        p.name
-        for p in MODELS.glob("*.json")
-        if p.name not in {"split.json", "eval_test.json"}
-    )
-
-
-def _resize_max(bgr: np.ndarray, max_side: int = 1100) -> np.ndarray:
-    h, w = bgr.shape[:2]
-    if max(h, w) <= max_side:
-        return bgr
-    scale = max_side / max(h, w)
-    return cv2.resize(bgr, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+def _downscale_pil(img: Image.Image, max_side: int = 1000) -> Image.Image:
+    out = img.copy()
+    out.thumbnail((max_side, max_side), Image.Resampling.LANCZOS)
+    return out
 
 
 def _example_paths() -> list[str]:
     if not EXAMPLES_DIR.exists():
         return []
-    paths = sorted(EXAMPLES_DIR.glob("*.png")) + sorted(EXAMPLES_DIR.glob("*.jpg"))
-    return [str(p) for p in paths]
-
-
-def _gradio_major() -> int:
-    import gradio as gr
-
-    return int(gr.__version__.split(".", 1)[0])
-
-
-def _has_image_slider() -> bool:
-    import gradio as gr
-
-    return hasattr(gr, "ImageSlider")
+    paths = list(EXAMPLES_DIR.glob("*.png")) + list(EXAMPLES_DIR.glob("*.jpg"))
+    return [str(p) for p in sorted(paths, key=lambda p: p.stat().st_size, reverse=True)]
 
 
 def _lab_delta(before_bgr: np.ndarray, after_bgr: np.ndarray) -> dict[str, float]:
@@ -409,363 +350,24 @@ def _status_html(info: dict, delta: dict | None = None) -> str:
     return html
 
 
-def _src_flag(photo) -> str:
-    if photo is None:
-        return "NO SOURCE LOADED"
-    return "SOURCE LOADED"
+def _src_html(loaded: bool) -> str:
+    cls = "pl-src on" if loaded else "pl-src"
+    text = "SOURCE LOADED" if loaded else "NO SOURCE LOADED"
+    return f'<p class="{cls}">{text}</p>'
 
 
-def build_demo():
-    import gradio as gr
+def _export_path(after_pil: Image.Image | None) -> str | None:
+    if after_pil is None:
+        return None
+    import os
 
-    model_names = _list_models()
-    try:
-        fallback_model = get_best_model_path().name
-    except FileNotFoundError:
-        fallback_model = model_names[0] if model_names else None
-
-    cache: dict[str, dict] = {}
-    use_slider = _has_image_slider()
-    examples = _example_paths()
-    sample_path = examples[0] if examples else None
-
-    def _get_model(name: str):
-        if name not in cache:
-            cache[name] = load_model(MODELS / name)
-        return cache[name]
-
-    def _resolve_look(profile: str, look: str) -> str:
-        if profile in PROFILE_TILES:
-            return PROFILE_TILES[profile][0]
-        return look or "Premium camera"
-
-    def run(photo, mode, look, profile, model_name, preset, strength, view_mode):
-        view_mode = view_mode or ("Split Seam" if use_slider else "Side-by-Side")
-        # map UI labels → internal
-        view_key = {
-            "Split Seam": "Slider",
-            "Side-by-Side": "Side-by-side",
-            "Difference": "Difference",
-        }.get(view_mode, view_mode)
-
-        show_slider = use_slider and view_key == "Slider"
-        show_side = view_key == "Side-by-side"
-        show_diff = view_key == "Difference"
-        flag = _src_flag(photo)
-
-        if photo is None:
-            return (
-                gr.update(value=None, visible=show_slider),
-                None,
-                None,
-                gr.update(value=None, visible=show_diff),
-                _empty_status(),
-                None,
-                None,
-                gr.update(visible=show_side),
-                flag,
-                None,
-            )
-
-        photo = _as_pil(photo)
-        bgr = _resize_max(_pil_to_bgr(photo), max_side=1000)
-        look_name = _resolve_look(profile, look)
-
-        if mode == "Auto":
-            out, info = enhance_bgr(
-                bgr,
-                mode="auto",
-                strength=float(strength),
-                preset=preset,
-                look=look_name,
-                return_info=True,
-            )
-        else:
-            if not model_names:
-                raise gr.Error("No trained models found.")
-            name = model_name or fallback_model
-            out = enhance_bgr(
-                bgr,
-                model_obj=_get_model(name),
-                strength=float(strength),
-                mode="model",
-            )
-            info = {"label": f"Single model · {name}", "scores": {}, "blurb": ""}
-
-        before_pil = _bgr_to_pil(bgr)
-        after_pil = _bgr_to_pil(out)
-        delta = _lab_delta(bgr, out)
-        heat = _bgr_to_pil(_diff_heatmap(bgr, out))
-        status = _status_html(info, delta)
-        slider_val = (before_pil, after_pil) if use_slider else None
-
-        return (
-            gr.update(value=slider_val, visible=show_slider),
-            before_pil,
-            after_pil,
-            gr.update(value=heat, visible=show_diff),
-            status,
-            before_pil,
-            after_pil,
-            gr.update(visible=show_side),
-            flag,
-            after_pil,  # export
-        )
-
-    def switch_view(view_mode, before_pil, after_pil):
-        view_key = {
-            "Split Seam": "Slider",
-            "Side-by-Side": "Side-by-side",
-            "Difference": "Difference",
-        }.get(view_mode or "Split Seam", "Slider")
-        before_pil = _as_pil(before_pil)
-        after_pil = _as_pil(after_pil)
-        heat = None
-        if view_key == "Difference" and before_pil and after_pil:
-            heat = _bgr_to_pil(
-                _diff_heatmap(_pil_to_bgr(before_pil), _pil_to_bgr(after_pil))
-            )
-        return (
-            gr.update(visible=use_slider and view_key == "Slider"),
-            gr.update(visible=view_key == "Side-by-side"),
-            gr.update(visible=view_key == "Difference", value=heat),
-        )
-
-    def load_sample():
-        if not sample_path:
-            raise gr.Error("No sample images in assets/examples.")
-        return Image.open(sample_path).convert("RGB")
-
-    def on_profile(profile, look_dd):
-        if profile in PROFILE_TILES:
-            return PROFILE_TILES[profile][0]
-        return look_dd
-
-    def compare(photo, strength, profile, look):
-        if photo is None:
-            return []
-        photo = _as_pil(photo)
-        bgr = _resize_max(_pil_to_bgr(photo), max_side=720)
-        look_name = _resolve_look(profile, look)
-        gallery = []
-        for name in list_looks():
-            out = enhance_bgr(
-                bgr, mode="auto", strength=float(strength), look=name
-            )
-            gallery.append((_bgr_to_pil(out), name))
-        # put active look first visually by order — fine
-        _ = look_name
-        return gallery
-
-    theme = _studio_theme()
-    major = _gradio_major()
-    blocks_kw: dict = {
-        "title": "Phone Look Studio",
-        "fill_height": False,
-        "fill_width": True,
-    }
-    if major < 6:
-        blocks_kw["theme"] = theme
-        blocks_kw["css"] = STUDIO_CSS
-
-    looks = list_looks()
-    default_view = "Split Seam" if use_slider else "Side-by-Side"
-
-    with gr.Blocks(**blocks_kw) as demo:
-        st_before = gr.State(None)
-        st_after = gr.State(None)
-
-        gr.HTML(
-            """
-            <div class="pl-top">
-              <div class="pl-brand">
-                <div class="pl-hex"></div>
-                <h1 class="pl-title">Phone Look Studio</h1>
-                <p class="pl-crumb"><b>DA3021</b> / IQOO NEO 9 PRO → OPTICAL LUT</p>
-              </div>
-            </div>
-            """
-        )
-
-        with gr.Row(elem_classes=["pl-bar"]):
-            with gr.Column(scale=5):
-                view_mode = gr.Radio(
-                    ["Split Seam", "Side-by-Side", "Difference"]
-                    if use_slider
-                    else ["Side-by-Side", "Difference"],
-                    value=default_view,
-                    label="View",
-                    show_label=False,
-                )
-            with gr.Column(scale=3):
-                src_flag = gr.Textbox(
-                    value="NO SOURCE LOADED",
-                    label="Source",
-                    show_label=False,
-                    interactive=False,
-                    elem_classes=["pl-src-flag"],
-                )
-            with gr.Column(scale=2):
-                sample_btn = gr.Button("Load Sample RAW", variant="secondary")
-                # Export uses download button on after image; keep a downloadable file
-                export_btn = gr.DownloadButton("Export", variant="primary")
-
-        # STAGE
-        with gr.Column(elem_classes=["pl-stage", "pl-drop"]):
-            photo = gr.Image(
-                type="pil",
-                label="Drop a phone photo here, or click to browse",
-                height=380,
-                sources=["upload", "clipboard"],
-            )
-            slider = gr.ImageSlider(
-                label="Split seam · drag to compare",
-                type="pil",
-                height=480,
-                max_height=560,
-                slider_position=45,
-                interactive=False,
-                visible=False,
-            )
-            with gr.Row(visible=False) as side_row:
-                before = gr.Image(type="pil", label="Before", height=400)
-                after = gr.Image(type="pil", label="After", height=400)
-            diff_img = gr.Image(
-                type="pil",
-                label="Difference",
-                height=420,
-                visible=False,
-            )
-
-        # BOTTOM SHEET
-        with gr.Column(elem_classes=["pl-sheet"]):
-            gr.HTML('<div class="pl-step"><span>01 · Input source</span><span>None</span></div>')
-            with gr.Row():
-                # Gradio can't easily "paste" via button; clipboard is on Image sources
-                replace_hint = gr.Markdown(
-                    "Use the stage dropzone · **Replace** by uploading again · **Paste** with Ctrl+V on the image"
-                )
-
-            gr.HTML(
-                '<div class="pl-step"><span>02 · Optical profile</span>'
-                '<span class="tag">LUT-3D</span></div>'
-            )
-            look = gr.Dropdown(
-                looks,
-                value="Premium camera",
-                label="Profile",
-                show_label=False,
-            )
-            profile = gr.Radio(
-                ["Flagship", "Summicron", "Positive"],
-                value="Flagship",
-                label="Tiles",
-                show_label=False,
-                elem_classes=["pl-tiles"],
-            )
-
-            gr.HTML('<div class="pl-step"><span>03 · Blend strength</span></div>')
-            strength = gr.Slider(0.0, 1.0, value=0.9, step=0.05, label="Strength", show_label=False)
-
-            with gr.Accordion("04 · Optical & tone fine-tuning", open=False):
-                mode = gr.Radio(
-                    ["Auto", "Single model"],
-                    value="Auto",
-                    label="Engine",
-                )
-                preset = gr.Dropdown(
-                    list_presets(), value="Balanced", label="Base preset"
-                )
-                model_name = gr.Dropdown(
-                    choices=model_names or ["(none)"],
-                    value=fallback_model,
-                    label="Single model",
-                )
-
-            scenario_md = gr.HTML(_empty_status())
-
-            with gr.Row():
-                run_btn = gr.Button("Re-run", variant="secondary", scale=1)
-                cmp_btn = gr.Button("Compare All Looks", variant="primary", scale=3)
-
-            gallery = gr.Gallery(
-                label="Look strip",
-                columns=3,
-                height=200,
-                object_fit="contain",
-            )
-
-            # hidden file for export button
-            export_file = gr.File(label="export", visible=False)
-
-        if examples:
-            gr.Examples(
-                examples=examples[:4],
-                inputs=photo,
-                label="Samples",
-                examples_per_page=4,
-            )
-
-        def _export_path(after_pil):
-            if after_pil is None:
-                return None
-            after_pil = _as_pil(after_pil)
-            out = ROOT / "outputs" / "enhanced" / "_export.png"
-            out.parent.mkdir(parents=True, exist_ok=True)
-            after_pil.save(out)
-            return str(out)
-
-        def run_and_export(*args):
-            result = list(run(*args))
-            after_pil = result[2]  # after image
-            path = _export_path(after_pil)
-            # DownloadButton wants a file path update
-            result.append(gr.update(value=path) if path else gr.update())
-            return result
-
-        run_outs = [
-            slider,
-            before,
-            after,
-            diff_img,
-            scenario_md,
-            st_before,
-            st_after,
-            side_row,
-            src_flag,
-            after,
-            export_btn,
-        ]
-        inputs = [photo, mode, look, profile, model_name, preset, strength, view_mode]
-
-        def run_wrapped(photo, mode, look, profile, model_name, preset, strength, view_mode):
-            r = run(photo, mode, look, profile, model_name, preset, strength, view_mode)
-            # r: slider, before, after, diff, status, st_b, st_a, side, flag, export_pil
-            path = _export_path(r[9])
-            return (*r[:10], gr.update(value=path) if path else gr.update(value=None))
-
-        run_btn.click(run_wrapped, inputs, run_outs)
-        photo.change(run_wrapped, inputs, run_outs)
-        look.change(run_wrapped, inputs, run_outs)
-        strength.release(run_wrapped, inputs, run_outs)
-        profile.change(
-            lambda p, l: on_profile(p, l),
-            [profile, look],
-            [look],
-        ).then(run_wrapped, inputs, run_outs)
-
-        view_mode.change(
-            switch_view,
-            [view_mode, st_before, st_after],
-            [slider, side_row, diff_img],
-        )
-        sample_btn.click(load_sample, outputs=[photo])
-        cmp_btn.click(compare, [photo, strength, profile, look], [gallery])
-
-        # silence unused
-        _ = (replace_hint, export_file)
-
-    return demo
+    out_dir = ROOT / "outputs" / "enhanced"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    fd, name = tempfile.mkstemp(suffix=".jpg", prefix="export_", dir=str(out_dir))
+    os.close(fd)
+    path = Path(name)
+    after_pil.convert("RGB").save(path, format="JPEG", quality=92)
+    return str(path)
 
 
 def _studio_theme():
@@ -784,6 +386,10 @@ def _studio_theme():
         body_text_color="#f5f5f5",
         body_text_color_dark="#f5f5f5",
         body_text_color_subdued="#8a8a8a",
+        background_fill_primary="#0e0e0e",
+        background_fill_primary_dark="#0e0e0e",
+        background_fill_secondary="#141414",
+        background_fill_secondary_dark="#141414",
         block_background_fill="#141414",
         block_background_fill_dark="#141414",
         block_border_color="#2a2a2a",
@@ -793,10 +399,13 @@ def _studio_theme():
         block_label_text_color="#8a8a8a",
         block_label_text_color_dark="#8a8a8a",
         block_title_text_color="#f5f5f5",
+        block_title_text_color_dark="#f5f5f5",
         input_background_fill="#121212",
         input_background_fill_dark="#121212",
         input_border_color="#333333",
         input_border_color_dark="#333333",
+        input_placeholder_color="#8a8a8a",
+        input_placeholder_color_dark="#8a8a8a",
         button_primary_background_fill="#e8a54b",
         button_primary_background_fill_hover="#f0b45c",
         button_primary_text_color="#111111",
@@ -810,16 +419,321 @@ def _studio_theme():
     )
 
 
+def build_demo():
+    import gradio as gr
+
+    use_slider = hasattr(gr, "ImageSlider")
+    examples = _example_paths()
+    sample_path = examples[0] if examples else None
+    looks = list_looks()
+    presets = list_presets()
+    default_view = VIEW_SPLIT if use_slider else VIEW_SIDE
+    view_choices = (
+        [VIEW_SPLIT, VIEW_SIDE, VIEW_DIFF]
+        if use_slider
+        else [VIEW_SIDE, VIEW_DIFF]
+    )
+
+    def _view_flags(view: str, has_result: bool):
+        view = view or default_view
+        show_slider = bool(use_slider and has_result and view == VIEW_SPLIT)
+        show_side = bool(has_result and view == VIEW_SIDE)
+        show_diff = bool(has_result and view == VIEW_DIFF)
+        return show_slider, show_side, show_diff
+
+    def process(photo, look, strength, preset, view):
+        """Single enhance path — Auto cascade only."""
+        if photo is None:
+            show_slider, show_side, show_diff = _view_flags(view, False)
+            return (
+                gr.update(elem_classes=["pl-drop"]),
+                gr.update(value=None, visible=show_slider),
+                None,
+                None,
+                gr.update(value=None, visible=show_diff),
+                gr.update(visible=show_side),
+                _empty_status(),
+                _src_html(False),
+                gr.update(value=None, interactive=False),
+                None,
+                None,
+            )
+
+        pil = _downscale_pil(_as_pil(photo), 1000)
+        bgr = _pil_to_bgr(pil)
+        look_name = look or "Premium camera"
+        out, info = enhance_bgr(
+            bgr,
+            mode="auto",
+            strength=float(strength),
+            preset=preset or "Balanced",
+            look=look_name,
+            return_info=True,
+        )
+        before_pil = _bgr_to_pil(bgr)
+        after_pil = _bgr_to_pil(out)
+        delta = _lab_delta(bgr, out)
+        status = _status_html(info, delta)
+        show_slider, show_side, show_diff = _view_flags(view, True)
+
+        heat = None
+        if show_diff:
+            heat = _bgr_to_pil(_diff_heatmap(bgr, out))
+
+        slider_val = (before_pil, after_pil) if use_slider else None
+        export = _export_path(after_pil)
+
+        return (
+            gr.update(elem_classes=["pl-compact"]),
+            gr.update(value=slider_val, visible=show_slider),
+            before_pil,
+            after_pil,
+            gr.update(value=heat, visible=show_diff),
+            gr.update(visible=show_side),
+            status,
+            _src_html(True),
+            gr.update(value=export, interactive=bool(export)),
+            before_pil,
+            after_pil,
+        )
+
+    def switch_view(view, before_pil, after_pil):
+        has = before_pil is not None and after_pil is not None
+        show_slider, show_side, show_diff = _view_flags(view, has)
+        heat = None
+        if show_diff and has:
+            b = _as_pil(before_pil)
+            a = _as_pil(after_pil)
+            heat = _bgr_to_pil(_diff_heatmap(_pil_to_bgr(b), _pil_to_bgr(a)))
+        return (
+            gr.update(visible=show_slider),
+            gr.update(visible=show_side),
+            gr.update(visible=show_diff, value=heat),
+        )
+
+    def load_sample():
+        if not sample_path:
+            raise gr.Error("No sample images in assets/examples.")
+        return Image.open(sample_path).convert("RGB")
+
+    def tile_to_look(profile: str) -> str:
+        return PROFILE_TILES.get(profile, "Premium camera")
+
+    def compare_all(photo, strength, look, preset):
+        if photo is None:
+            return []
+        pil = _downscale_pil(_as_pil(photo), 720)
+        bgr = _pil_to_bgr(pil)
+        gallery = []
+        for name in looks:
+            out = enhance_bgr(
+                bgr,
+                mode="auto",
+                strength=float(strength),
+                preset=preset or "Balanced",
+                look=name,
+            )
+            gallery.append((_bgr_to_pil(out), name))
+        return gallery
+
+    with gr.Blocks(
+        title="Phone Look Studio",
+        fill_height=False,
+        fill_width=True,
+        elem_id="phone-look",
+    ) as demo:
+        st_before = gr.State(None)
+        st_after = gr.State(None)
+
+        gr.HTML(
+            """
+            <div class="pl-top">
+              <div class="pl-brand">
+                <div class="pl-hex"></div>
+                <h1 class="pl-title">Phone Look Studio</h1>
+                <p class="pl-crumb"><b>DA3021</b> / IQOO NEO 9 PRO → OPTICAL LUT</p>
+              </div>
+            </div>
+            """
+        )
+
+        with gr.Row(elem_classes=["pl-bar"]):
+            view_mode = gr.Radio(
+                view_choices,
+                value=default_view,
+                label="View",
+                show_label=False,
+                elem_id="view-mode",
+                scale=5,
+            )
+            src_html = gr.HTML(_src_html(False), scale=2)
+            with gr.Column(scale=3, min_width=200):
+                sample_btn = gr.Button("Load sample", variant="secondary")
+                export_btn = gr.DownloadButton(
+                    "Export", variant="primary", interactive=False
+                )
+
+        with gr.Column(elem_classes=["pl-stage"]):
+            photo = gr.Image(
+                type="pil",
+                label="Drop a phone photo · or click to browse",
+                height=360,
+                sources=["upload", "clipboard"],
+                elem_classes=["pl-drop"],
+                format="jpeg",
+            )
+            if use_slider:
+                slider = gr.ImageSlider(
+                    label="Split seam · drag to compare",
+                    type="pil",
+                    height=460,
+                    max_height=540,
+                    slider_position=45,
+                    interactive=False,
+                    visible=False,
+                    format="jpeg",
+                )
+            else:
+                slider = gr.Image(
+                    label="Result",
+                    type="pil",
+                    height=460,
+                    interactive=False,
+                    visible=False,
+                    format="jpeg",
+                )
+
+            with gr.Row(visible=False) as side_row:
+                before = gr.Image(
+                    type="pil",
+                    label="Before",
+                    height=400,
+                    interactive=False,
+                    buttons=[],
+                    format="jpeg",
+                )
+                after = gr.Image(
+                    type="pil",
+                    label="After",
+                    height=400,
+                    interactive=False,
+                    buttons=["download"],
+                    format="jpeg",
+                )
+            diff_img = gr.Image(
+                type="pil",
+                label="Difference",
+                height=420,
+                interactive=False,
+                buttons=[],
+                visible=False,
+                format="jpeg",
+            )
+
+        with gr.Column(elem_classes=["pl-sheet"]):
+            gr.HTML(
+                '<div class="pl-step"><span>01 · Input source</span>'
+                "<span>Replace via stage · Paste Ctrl+V</span></div>"
+            )
+
+            gr.HTML(
+                '<div class="pl-step"><span>02 · Optical profile</span>'
+                '<span class="tag">LOOK</span></div>'
+            )
+            look = gr.Dropdown(
+                looks,
+                value="Premium camera",
+                label="Look",
+                show_label=False,
+            )
+            profile = gr.Radio(
+                list(PROFILE_TILES.keys()),
+                value="Flagship",
+                label="Tiles",
+                show_label=False,
+                elem_id="look-tiles",
+            )
+
+            gr.HTML('<div class="pl-step"><span>03 · Blend strength</span></div>')
+            strength = gr.Slider(
+                0.0, 1.0, value=0.9, step=0.05, label="Strength", show_label=False
+            )
+
+            with gr.Accordion("04 · Optical & tone fine-tuning", open=False):
+                preset = gr.Dropdown(
+                    presets, value="Balanced", label="Base preset"
+                )
+
+            status = gr.HTML(_empty_status())
+
+            with gr.Row():
+                run_btn = gr.Button("Re-run", variant="secondary", scale=1)
+                cmp_btn = gr.Button("Compare All Looks", variant="primary", scale=3)
+
+            gallery = gr.Gallery(
+                label="Look strip",
+                columns=3,
+                height=200,
+                object_fit="contain",
+                format="jpeg",
+            )
+
+        if examples:
+            gr.Examples(
+                examples=examples[:4],
+                inputs=photo,
+                label="Samples",
+                examples_per_page=4,
+            )
+
+        outs = [
+            photo,
+            slider,
+            before,
+            after,
+            diff_img,
+            side_row,
+            status,
+            src_html,
+            export_btn,
+            st_before,
+            st_after,
+        ]
+        inputs = [photo, look, strength, preset, view_mode]
+
+        run_btn.click(process, inputs, outs)
+        photo.change(process, inputs, outs)
+        look.change(process, inputs, outs)
+        strength.release(process, inputs, outs)
+        preset.change(process, inputs, outs)
+
+        # Tiles only set look — look.change runs process once (no .then)
+        profile.change(tile_to_look, [profile], [look])
+
+        view_mode.change(
+            switch_view,
+            [view_mode, st_before, st_after],
+            [slider, side_row, diff_img],
+        )
+        sample_btn.click(load_sample, outputs=[photo])
+        cmp_btn.click(compare_all, [photo, strength, look, preset], [gallery])
+
+        demo.queue(default_concurrency_limit=1, max_size=8)
+
+    return demo
+
+
 def launch_kwargs(port: int) -> dict:
-    kw: dict = {
+    return {
         "server_name": "0.0.0.0",
         "server_port": port,
         "show_error": True,
+        "ssr_mode": False,
+        "max_file_size": "15mb",
+        "theme": _studio_theme(),
+        "css": STUDIO_CSS,
+        "js": "() => { document.body.classList.add('dark'); }",
     }
-    if _gradio_major() >= 6:
-        kw["theme"] = _studio_theme()
-        kw["css"] = STUDIO_CSS
-    return kw
 
 
 def main():
