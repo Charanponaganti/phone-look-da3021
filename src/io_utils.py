@@ -26,16 +26,18 @@ def write_bgr(path: Path, img: np.ndarray) -> None:
 
 
 def list_pair_ids(folder: Path = RAW_PAIRS) -> list[str]:
-    """Find scene IDs that have both *_src and *_tgt files."""
+    """Find scene IDs that have both *_src and *_tgt (or *_tar) files."""
     src = {p.stem.replace("_src", "") for p in folder.glob("*_src.*")}
     tgt = {p.stem.replace("_tgt", "") for p in folder.glob("*_tgt.*")}
-    ids = sorted(src & tgt)
+    # Accept common typo / shorthand from phone uploads
+    tar = {p.stem.replace("_tar", "") for p in folder.glob("*_tar.*")}
+    ids = sorted(src & (tgt | tar))
     return ids
 
 
 def pair_paths(scene_id: str, folder: Path = RAW_PAIRS) -> tuple[Path, Path]:
     src_cands = list(folder.glob(f"{scene_id}_src.*"))
-    tgt_cands = list(folder.glob(f"{scene_id}_tgt.*"))
+    tgt_cands = list(folder.glob(f"{scene_id}_tgt.*")) or list(folder.glob(f"{scene_id}_tar.*"))
     if not src_cands or not tgt_cands:
         raise FileNotFoundError(f"Missing pair for {scene_id}")
     return src_cands[0], tgt_cands[0]

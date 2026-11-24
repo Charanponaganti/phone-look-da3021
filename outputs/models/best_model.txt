@@ -1,1 +1,1 @@
-tiny_cnn.json
+lab_mlp.json

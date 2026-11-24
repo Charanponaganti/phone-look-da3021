@@ -113,7 +113,11 @@ def main():
         print("Run python -m src.fit_models first")
         return
     split = json.loads(split_path.read_text(encoding="utf-8"))
-    test_ids = split["test"]
+    test_ids = list(split["test"])
+    if len(test_ids) > 200:
+        rng = np.random.default_rng(0)
+        test_ids = list(rng.choice(test_ids, size=200, replace=False))
+        print(f"Evaluating on {len(test_ids)}/{len(split['test'])} held-out scenes")
     skip = {"split.json", "eval_test.json"}
     model_files = sorted(p for p in MODELS.glob("*.json") if p.name not in skip)
 

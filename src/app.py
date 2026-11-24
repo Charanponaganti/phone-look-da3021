@@ -229,12 +229,12 @@ def build_demo():
         gr.HTML(
             """
             <div class="pl-hero">
-              <p class="pl-kicker">DA3021 · cheap phone → expensive-camera look</p>
+              <p class="pl-kicker">DA3021 · iQOO Neo 9 Pro → premium-camera look</p>
               <h1 class="pl-title">Phone Look</h1>
               <p class="pl-sub">
-                Good cameras cost money. This pipeline learns colour &amp; tone from
-                phone↔DSLR pairs so ordinary phone shots get a cleaner, richer,
-                more DSLR-like finish — without buying new glass.
+                Good cameras cost money. Learns colour &amp; tone from phone↔DSLR
+                pairs (DPED) plus your Neo 9 Pro Photo→Night/HDR captures — so
+                everyday shots get a cleaner, richer finish without new glass.
               </p>
             </div>
             """

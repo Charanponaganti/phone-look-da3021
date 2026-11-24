@@ -16,6 +16,10 @@ Thumbs.db
 # Large / regenerable
 data/external/dped_sample/sample_images.gz
 data/external/dped_sample/extracted/
+data/external/dped_patches/
+data/raw/pairs/dped*.jpg
+data/raw/pairs/dped*.png
+_find_dped_urls.py
 data/aligned/
 data/raw/bursts/
 outputs/enhanced/

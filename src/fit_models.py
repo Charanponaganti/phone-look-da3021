@@ -58,11 +58,25 @@ def main():
     if not train_ids:
         train_ids, test_ids = order[:-1], order[-1:]
 
-    print(f"Train scenes ({len(train_ids)}): {train_ids}")
-    print(f"Test scenes  ({len(test_ids)}): {test_ids}")
+    print(f"Train scenes ({len(train_ids)}): {train_ids[:8]}{'…' if len(train_ids) > 8 else ''}")
+    print(f"Test scenes  ({len(test_ids)}): {test_ids[:8]}{'…' if len(test_ids) > 8 else ''}")
 
-    Xtr, Ytr = gather_pixels(train_ids)
-    print(f"Training pixels: {len(Xtr)}")
+    # Always keep personal Neo/scene captures in the pixel + CNN pools
+    own_train = [s for s in train_ids if s.startswith("scene")]
+    dped_train = [s for s in train_ids if not s.startswith("scene")]
+
+    # Deadline path: cap DPED scenes so gather/fit finish in hours, not overnight
+    pixel_ids = list(own_train)
+    if len(dped_train) > 1500:
+        pixel_ids += list(rng.choice(dped_train, size=1500, replace=False))
+    else:
+        pixel_ids += dped_train
+    n_pix = 6000 if len(pixel_ids) > 200 else 25000
+    if len(pixel_ids) > 800:
+        n_pix = 2000
+    print(f"Pixel pool: {len(pixel_ids)} scenes ({len(own_train)} personal)")
+    Xtr, Ytr = gather_pixels(pixel_ids, n_per_scene=n_pix)
+    print(f"Training pixels: {len(Xtr)} (n_per_scene={n_pix})", flush=True)
 
     meta = {"train": train_ids, "test": test_ids}
 
@@ -108,16 +122,25 @@ def main():
     print("Fitting TinyResCNN v2 (full patches + multi-scale, CPU)…")
     from .tiny_cnn import fit_tiny_cnn
 
-    train_dirs = [ALIGNED / sid for sid in train_ids]
+    # Cap DPED for CNN; always include personal scenes
+    rng_cnn = np.random.default_rng(7)
+    cnn_dped = dped_train
+    if len(cnn_dped) > 1000:
+        cnn_dped = list(rng_cnn.choice(cnn_dped, size=1000, replace=False))
+    cnn_ids = list(own_train) + cnn_dped
+    print(f"  CNN using {len(cnn_ids)} scenes ({len(own_train)} personal)", flush=True)
+    n_per = 4 if len(cnn_ids) > 400 else (8 if len(cnn_ids) > 80 else 16)
+    epochs = 25 if len(cnn_ids) > 400 else 40
+    train_dirs = [ALIGNED / sid for sid in cnn_ids]
     cnn_payload = fit_tiny_cnn(
         train_dirs,
         out_weights=MODELS / "tiny_cnn.pt",
         channels=32,
         depth=6,
         patch=64,
-        epochs=40,
+        epochs=epochs,
         batch_size=16,
-        n_per_scene=16,
+        n_per_scene=n_per,
     )
     save_model(MODELS / "tiny_cnn.json", "tiny_cnn", cnn_payload, meta)
     print("Saved tiny_cnn.json + tiny_cnn.pt")
