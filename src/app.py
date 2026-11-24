@@ -22,121 +22,101 @@ from .pipeline import list_looks, list_presets
 
 EXAMPLES_DIR = ROOT / "assets" / "examples"
 
+# Aggressive Gradio 6 overrides: Soft+amber paints labels yellow on cream text.
 STUDIO_CSS = """
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Sora:wght@400;500;600&display=swap');
 
 :root {
   --pl-bg0: #14110e;
   --pl-bg1: #1c1814;
+  --pl-panel: #221e19;
   --pl-ink: #f3eee6;
-  --pl-muted: #a89f93;
-  --pl-line: rgba(243, 238, 230, 0.10);
+  --pl-muted: #b7aea2;
+  --pl-line: rgba(243, 238, 230, 0.14);
   --pl-accent: #e0b35a;
   --pl-accent-ink: #1a140c;
 }
 
+html, body {
+  background: #12100e !important;
+}
+
 .gradio-container {
-  max-width: 1120px !important;
+  max-width: min(96vw, 1280px) !important;
+  margin: 0 auto !important;
   font-family: "Sora", system-ui, sans-serif !important;
   color: var(--pl-ink) !important;
+  padding-bottom: 2rem !important;
 }
 
 .gradio-container,
 .main,
-footer {
+footer,
+.wrap {
   background:
-    radial-gradient(900px 420px at 12% -10%, rgba(224, 179, 90, 0.16), transparent 55%),
-    radial-gradient(700px 380px at 92% 8%, rgba(90, 140, 160, 0.10), transparent 50%),
+    radial-gradient(900px 420px at 12% -10%, rgba(224, 179, 90, 0.14), transparent 55%),
+    radial-gradient(700px 380px at 92% 8%, rgba(90, 140, 160, 0.08), transparent 50%),
     linear-gradient(180deg, #1a1612 0%, #12100e 55%, #0e0c0a 100%) !important;
 }
 
-.pl-hero {
-  padding: 0.85rem 0 0.35rem;
-  border-bottom: 1px solid var(--pl-line);
-  margin-bottom: 0.85rem;
+/* ---- Readable labels / inputs (Gradio 6 Soft theme fix) ---- */
+.block .label-wrap,
+.block .label-wrap span,
+span.svelte-1gfkn6j,
+label.svelte-1b6s6s,
+.block-label,
+.block > label,
+.form label,
+.container > label {
+  color: var(--pl-ink) !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
 }
 
-.pl-kicker {
-  font-size: 0.68rem;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--pl-accent);
-  margin: 0 0 0.3rem;
-  font-weight: 600;
-}
-
-.pl-title {
-  font-family: "Fraunces", Georgia, serif !important;
-  font-size: clamp(1.7rem, 3.6vw, 2.45rem);
-  font-weight: 700;
-  line-height: 1.05;
-  margin: 0 0 0.35rem;
-  color: var(--pl-ink);
-  letter-spacing: -0.02em;
-}
-
-.pl-sub {
-  max-width: 40rem;
-  margin: 0;
-  color: var(--pl-muted);
-  font-size: 0.9rem;
-  line-height: 1.45;
-}
-
-.pl-status {
-  margin-top: 0.45rem;
-  padding: 0.65rem 0.8rem;
-  border-left: 3px solid var(--pl-accent);
-  background: rgba(224, 179, 90, 0.08);
-  color: var(--pl-ink);
-  font-size: 0.88rem;
-  line-height: 1.45;
-}
-
-.pl-status .pl-delta {
-  color: var(--pl-muted);
-  font-size: 0.84rem;
-}
-
-.pl-pills label,
-.pl-view label {
-  border-radius: 999px !important;
+.block {
+  background: var(--pl-panel) !important;
   border: 1px solid var(--pl-line) !important;
-  background: var(--pl-bg1) !important;
-  color: var(--pl-muted) !important;
-  padding: 0.35rem 0.75rem !important;
-  font-size: 0.78rem !important;
-  white-space: nowrap;
+  border-radius: 12px !important;
 }
 
-.pl-pills input:checked + label,
-.pl-pills label:has(input:checked),
-.pl-view input:checked + label,
-.pl-view label:has(input:checked) {
-  background: var(--pl-accent) !important;
-  color: var(--pl-accent-ink) !important;
-  border-color: var(--pl-accent) !important;
-  font-weight: 600 !important;
+input[type="number"],
+input[type="text"],
+textarea,
+select,
+.secondary-wrap input,
+input.svelte-1f354aw,
+.number-input input {
+  color: var(--pl-ink) !important;
+  background: #12100e !important;
+  border: 1px solid #4a4339 !important;
+  border-radius: 8px !important;
+  opacity: 1 !important;
+  -webkit-text-fill-color: var(--pl-ink) !important;
 }
 
-.pl-pills .wrap,
-.pl-view .wrap {
-  gap: 0.35rem !important;
-  flex-wrap: wrap !important;
+.slider input[type="number"] {
+  min-width: 3.2rem !important;
+  color: var(--pl-ink) !important;
+  background: #12100e !important;
 }
 
-@media (max-width: 860px) {
-  .pl-pills .wrap {
-    flex-wrap: nowrap !important;
-    overflow-x: auto !important;
-    padding-bottom: 0.25rem;
-  }
+/* Radio option text readable */
+.wrap label span,
+fieldset label,
+.radio-row label,
+[role="radiogroup"] label {
+  color: var(--pl-ink) !important;
+  background: transparent !important;
 }
 
-.pl-slider {
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: inset 0 0 0 1px var(--pl-line);
+[role="radiogroup"] {
+  gap: 0.35rem 0.85rem !important;
+}
+
+button {
+  color: inherit;
 }
 
 button.primary,
@@ -145,15 +125,74 @@ button.primary,
   color: var(--pl-accent-ink) !important;
   border: none !important;
   font-weight: 600 !important;
-  letter-spacing: 0.02em;
 }
 
-button.primary:hover,
-.gr-button-primary:hover {
-  filter: brightness(1.06);
+button.secondary,
+.gr-button-secondary {
+  background: #2a241c !important;
+  color: var(--pl-ink) !important;
+  border: 1px solid #4a4339 !important;
 }
 
-footer { opacity: 0.55; }
+.pl-hero {
+  padding: 0.55rem 0 0.45rem;
+  border-bottom: 1px solid var(--pl-line);
+  margin-bottom: 0.75rem;
+}
+
+.pl-kicker {
+  font-size: 0.68rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--pl-accent);
+  margin: 0 0 0.25rem;
+  font-weight: 600;
+}
+
+.pl-title {
+  font-family: "Fraunces", Georgia, serif !important;
+  font-size: clamp(1.55rem, 3vw, 2.15rem);
+  font-weight: 700;
+  line-height: 1.08;
+  margin: 0 0 0.3rem;
+  color: var(--pl-ink);
+  letter-spacing: -0.02em;
+}
+
+.pl-sub {
+  max-width: 46rem;
+  margin: 0;
+  color: var(--pl-muted);
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.pl-status {
+  margin-top: 0.4rem;
+  padding: 0.6rem 0.75rem;
+  border-left: 3px solid var(--pl-accent);
+  background: rgba(224, 179, 90, 0.10);
+  color: var(--pl-ink);
+  font-size: 0.86rem;
+  line-height: 1.4;
+  border-radius: 0 8px 8px 0;
+}
+
+.pl-status .pl-delta {
+  color: var(--pl-muted);
+  font-size: 0.82rem;
+}
+
+.pl-slider {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+footer { opacity: 0.5; }
+
+@media (max-width: 900px) {
+  .gradio-container { max-width: 100% !important; }
+}
 """
 
 
@@ -182,7 +221,7 @@ def _list_models() -> list[str]:
     )
 
 
-def _resize_max(bgr: np.ndarray, max_side: int = 1400) -> np.ndarray:
+def _resize_max(bgr: np.ndarray, max_side: int = 1100) -> np.ndarray:
     h, w = bgr.shape[:2]
     if max(h, w) <= max_side:
         return bgr
@@ -297,7 +336,7 @@ def build_demo():
             )
 
         photo = _as_pil(photo)
-        bgr = _resize_max(_pil_to_bgr(photo))
+        bgr = _resize_max(_pil_to_bgr(photo), max_side=1000)
 
         if mode == "Auto":
             out, info = enhance_bgr(
@@ -361,7 +400,7 @@ def build_demo():
         if photo is None:
             return []
         photo = _as_pil(photo)
-        bgr = _resize_max(_pil_to_bgr(photo), max_side=900)
+        bgr = _resize_max(_pil_to_bgr(photo), max_side=720)
         gallery = []
         for look_name in list_looks():
             out = enhance_bgr(
@@ -373,7 +412,7 @@ def build_demo():
     examples = _example_paths()
     theme = _studio_theme()
     major = _gradio_major()
-    blocks_kw: dict = {"title": "Phone Look Studio"}
+    blocks_kw: dict = {"title": "Phone Look Studio", "fill_height": False}
     if major < 6:
         blocks_kw["theme"] = theme
         blocks_kw["css"] = STUDIO_CSS
@@ -391,26 +430,25 @@ def build_demo():
               <p class="pl-kicker">DA3021 · iQOO Neo 9 Pro → premium-camera look</p>
               <h1 class="pl-title">Phone Look Studio</h1>
               <p class="pl-sub">
-                Drag the seam to see before → after. Learns colour &amp; tone from
-                DPED phone↔DSLR pairs plus your Neo Photo→Night/HDR captures.
+                Drag the seam to compare before → after. Upload a phone photo,
+                pick a camera look, then slide.
               </p>
             </div>
             """
         )
 
         with gr.Row(equal_height=False):
-            with gr.Column(scale=3, min_width=240):
+            with gr.Column(scale=4, min_width=260):
                 photo = gr.Image(
                     type="pil",
                     label="Phone photo",
-                    height=220,
+                    height=200,
                     sources=["upload", "clipboard"],
                 )
-                look = gr.Radio(
+                look = gr.Dropdown(
                     looks,
                     value="Premium camera",
                     label="Camera look",
-                    elem_classes=["pl-pills"],
                 )
                 strength = gr.Slider(
                     0.0, 1.0, value=0.85, step=0.05, label="Strength"
@@ -434,21 +472,20 @@ def build_demo():
                         label="Single model",
                     )
 
-            with gr.Column(scale=7, min_width=320):
+            with gr.Column(scale=8, min_width=360):
                 view_mode = gr.Radio(
                     ["Slider", "Side-by-side", "Difference"]
                     if use_slider
                     else ["Side-by-side", "Difference"],
                     value=default_view,
                     label="Compare view",
-                    elem_classes=["pl-view"],
                 )
 
                 slider = gr.ImageSlider(
-                    label="Before → After  (drag the seam)",
+                    label="Before → After (drag the seam)",
                     type="pil",
-                    height=460,
-                    max_height=520,
+                    height=380,
+                    max_height=420,
                     slider_position=50,
                     interactive=False,
                     elem_classes=["pl-slider"],
@@ -456,13 +493,13 @@ def build_demo():
                 )
 
                 with gr.Row(visible=not use_slider) as side_row:
-                    before = gr.Image(type="pil", label="Before", height=360)
-                    after = gr.Image(type="pil", label="After", height=360)
+                    before = gr.Image(type="pil", label="Before", height=320)
+                    after = gr.Image(type="pil", label="After", height=320)
 
                 diff_img = gr.Image(
                     type="pil",
                     label="Difference (brighter = larger edit)",
-                    height=420,
+                    height=360,
                     visible=False,
                 )
                 scenario_md = gr.HTML(_empty_status())
@@ -471,7 +508,7 @@ def build_demo():
             gallery = gr.Gallery(
                 label="Look strip",
                 columns=3,
-                height=220,
+                height=200,
                 object_fit="contain",
             )
 
@@ -479,7 +516,7 @@ def build_demo():
             gr.Examples(
                 examples=examples,
                 inputs=photo,
-                label="Try an example (hazy / low-light first)",
+                label="Try an example",
                 examples_per_page=8,
             )
 
@@ -512,31 +549,45 @@ def build_demo():
 def _studio_theme():
     import gradio as gr
 
-    return gr.themes.Soft(
-        primary_hue="amber",
+    # Base (not Soft): Soft+amber paints yellow label chips that hide light text.
+    return gr.themes.Base(
+        primary_hue="stone",
         secondary_hue="stone",
         neutral_hue="stone",
         font=gr.themes.GoogleFont("Sora"),
         font_mono=gr.themes.GoogleFont("IBM Plex Mono"),
         text_size="md",
     ).set(
-        body_background_fill="#14110e",
-        body_background_fill_dark="#14110e",
-        block_background_fill="#1c1814",
-        block_background_fill_dark="#1c1814",
-        block_border_color="#3a342c",
-        block_border_color_dark="#3a342c",
-        block_label_text_color="#f3eee6",
-        block_title_text_color="#f3eee6",
+        body_background_fill="#12100e",
+        body_background_fill_dark="#12100e",
         body_text_color="#f3eee6",
         body_text_color_dark="#f3eee6",
-        body_text_color_subdued="#a89f93",
+        body_text_color_subdued="#b7aea2",
+        block_background_fill="#221e19",
+        block_background_fill_dark="#221e19",
+        block_border_color="#3a342c",
+        block_border_color_dark="#3a342c",
+        block_label_background_fill="#221e19",
+        block_label_background_fill_dark="#221e19",
+        block_label_text_color="#f3eee6",
+        block_label_text_color_dark="#f3eee6",
+        block_title_text_color="#f3eee6",
+        block_title_text_color_dark="#f3eee6",
+        input_background_fill="#12100e",
+        input_background_fill_dark="#12100e",
+        input_border_color="#4a4339",
+        input_border_color_dark="#4a4339",
+        input_placeholder_color="#8a8074",
+        input_placeholder_color_dark="#8a8074",
         button_primary_background_fill="#e0b35a",
         button_primary_background_fill_hover="#ebc474",
         button_primary_text_color="#1a140c",
         button_secondary_background_fill="#2a241c",
+        button_secondary_background_fill_hover="#342c22",
         button_secondary_text_color="#f3eee6",
         border_color_primary="#3a342c",
+        border_color_accent="#e0b35a",
+        color_accent="#e0b35a",
         shadow_drop="none",
         shadow_drop_lg="none",
     )
