@@ -22,176 +22,206 @@ from .pipeline import list_looks, list_presets
 
 EXAMPLES_DIR = ROOT / "assets" / "examples"
 
-# Aggressive Gradio 6 overrides: Soft+amber paints labels yellow on cream text.
 STUDIO_CSS = """
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Sora:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=DM+Sans:wght@400;500;600;700&display=swap');
 
 :root {
-  --pl-bg0: #14110e;
-  --pl-bg1: #1c1814;
-  --pl-panel: #221e19;
-  --pl-ink: #f3eee6;
-  --pl-muted: #b7aea2;
-  --pl-line: rgba(243, 238, 230, 0.14);
-  --pl-accent: #e0b35a;
-  --pl-accent-ink: #1a140c;
+  --pl-bg: #0f0e0c;
+  --pl-panel: #1a1714;
+  --pl-ink: #f7f2ea;
+  --pl-muted: #d2c8b8;
+  --pl-line: rgba(247, 242, 234, 0.16);
+  --pl-accent: #f0c14d;
+  --pl-accent-ink: #1a1408;
 }
 
-html, body {
-  background: #12100e !important;
+html, body, .gradio-container, .main, footer, .wrap {
+  background: var(--pl-bg) !important;
+  color: var(--pl-ink) !important;
+  font-family: "DM Sans", system-ui, sans-serif !important;
+  font-size: 17px !important;
 }
 
 .gradio-container {
-  max-width: min(96vw, 1280px) !important;
-  margin: 0 auto !important;
-  font-family: "Sora", system-ui, sans-serif !important;
-  color: var(--pl-ink) !important;
-  padding-bottom: 2rem !important;
+  max-width: 100% !important;
+  width: 100% !important;
+  padding: 1.25rem 1.75rem 2.5rem !important;
+  margin: 0 !important;
 }
 
-.gradio-container,
-.main,
-footer,
-.wrap {
-  background:
-    radial-gradient(900px 420px at 12% -10%, rgba(224, 179, 90, 0.14), transparent 55%),
-    radial-gradient(700px 380px at 92% 8%, rgba(90, 140, 160, 0.08), transparent 50%),
-    linear-gradient(180deg, #1a1612 0%, #12100e 55%, #0e0c0a 100%) !important;
+/* Kill Gradio's narrow centered column */
+.gradio-container .main,
+.gradio-container > .main,
+div.main {
+  max-width: 100% !important;
+  width: 100% !important;
 }
 
-/* ---- Readable labels / inputs (Gradio 6 Soft theme fix) ---- */
+/* Labels: large + high contrast */
 .block .label-wrap,
 .block .label-wrap span,
-span.svelte-1gfkn6j,
-label.svelte-1b6s6s,
 .block-label,
 .block > label,
-.form label,
-.container > label {
+label,
+span[data-testid="block-info"],
+.svelte-1gfkn6j {
   color: var(--pl-ink) !important;
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
   opacity: 1 !important;
+  font-size: 1rem !important;
+  font-weight: 600 !important;
 }
 
 .block {
   background: var(--pl-panel) !important;
   border: 1px solid var(--pl-line) !important;
-  border-radius: 12px !important;
+  border-radius: 14px !important;
+  padding-top: 0.35rem !important;
 }
 
+/* Inputs / numbers readable */
+input, textarea, select,
 input[type="number"],
 input[type="text"],
-textarea,
-select,
-.secondary-wrap input,
-input.svelte-1f354aw,
-.number-input input {
+.secondary-wrap input {
   color: var(--pl-ink) !important;
-  background: #12100e !important;
-  border: 1px solid #4a4339 !important;
-  border-radius: 8px !important;
+  background: #0c0b09 !important;
+  border: 1px solid #5a5248 !important;
+  border-radius: 10px !important;
+  font-size: 1.05rem !important;
+  font-weight: 600 !important;
   opacity: 1 !important;
   -webkit-text-fill-color: var(--pl-ink) !important;
+  min-height: 2.4rem !important;
 }
 
 .slider input[type="number"] {
-  min-width: 3.2rem !important;
-  color: var(--pl-ink) !important;
-  background: #12100e !important;
+  width: 4rem !important;
+  min-width: 4rem !important;
+  font-size: 1.1rem !important;
 }
 
-/* Radio option text readable */
-.wrap label span,
+/* Radio options */
+[role="radiogroup"] label,
 fieldset label,
-.radio-row label,
-[role="radiogroup"] label {
+.wrap label span {
   color: var(--pl-ink) !important;
   background: transparent !important;
+  font-size: 1rem !important;
+  font-weight: 500 !important;
 }
 
 [role="radiogroup"] {
-  gap: 0.35rem 0.85rem !important;
+  gap: 0.5rem 1.1rem !important;
+  flex-wrap: wrap !important;
 }
 
 button {
-  color: inherit;
+  font-size: 1.05rem !important;
+  font-weight: 700 !important;
+  min-height: 2.75rem !important;
+  border-radius: 10px !important;
 }
 
-button.primary,
-.gr-button-primary {
+button.primary, .gr-button-primary {
   background: var(--pl-accent) !important;
   color: var(--pl-accent-ink) !important;
   border: none !important;
-  font-weight: 600 !important;
 }
 
-button.secondary,
-.gr-button-secondary {
-  background: #2a241c !important;
+button.secondary, .gr-button-secondary {
+  background: #2b261f !important;
   color: var(--pl-ink) !important;
-  border: 1px solid #4a4339 !important;
+  border: 1px solid #5a5248 !important;
 }
 
 .pl-hero {
-  padding: 0.55rem 0 0.45rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem 1.5rem;
+  padding: 0.25rem 0 1rem;
+  margin-bottom: 0.85rem;
   border-bottom: 1px solid var(--pl-line);
-  margin-bottom: 0.75rem;
 }
 
+.pl-hero-copy { max-width: 52rem; }
+
 .pl-kicker {
-  font-size: 0.68rem;
-  letter-spacing: 0.18em;
+  margin: 0 0 0.35rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--pl-accent);
-  margin: 0 0 0.25rem;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .pl-title {
+  margin: 0 0 0.4rem;
   font-family: "Fraunces", Georgia, serif !important;
-  font-size: clamp(1.55rem, 3vw, 2.15rem);
+  font-size: clamp(2rem, 4vw, 2.85rem);
   font-weight: 700;
-  line-height: 1.08;
-  margin: 0 0 0.3rem;
+  line-height: 1.05;
   color: var(--pl-ink);
   letter-spacing: -0.02em;
 }
 
 .pl-sub {
-  max-width: 46rem;
   margin: 0;
   color: var(--pl-muted);
-  font-size: 0.88rem;
-  line-height: 1.4;
+  font-size: 1.08rem;
+  line-height: 1.45;
+  font-weight: 500;
 }
 
 .pl-status {
-  margin-top: 0.4rem;
-  padding: 0.6rem 0.75rem;
-  border-left: 3px solid var(--pl-accent);
-  background: rgba(224, 179, 90, 0.10);
+  margin-top: 0.65rem;
+  padding: 0.95rem 1.1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(240, 193, 77, 0.35);
+  background: #241f18;
   color: var(--pl-ink);
-  font-size: 0.86rem;
-  line-height: 1.4;
-  border-radius: 0 8px 8px 0;
+  font-size: 1.05rem;
+  line-height: 1.5;
+  font-weight: 500;
+}
+
+.pl-status strong {
+  color: var(--pl-accent);
+  font-size: 1.12rem;
 }
 
 .pl-status .pl-delta {
-  color: var(--pl-muted);
-  font-size: 0.82rem;
+  display: block;
+  margin-top: 0.35rem;
+  color: #efe6d6;
+  font-size: 1.02rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
-.pl-slider {
-  border-radius: 12px;
-  overflow: hidden;
+.pl-status .pl-cues {
+  display: block;
+  margin-top: 0.25rem;
+  color: #cfc4b4;
+  font-size: 0.95rem;
 }
 
-footer { opacity: 0.5; }
+/* Bigger image stage */
+.pl-stage .image-container,
+.pl-stage img,
+.pl-slider img {
+  max-height: min(68vh, 720px) !important;
+}
+
+footer { display: none !important; }
 
 @media (max-width: 900px) {
-  .gradio-container { max-width: 100% !important; }
+  .gradio-container { padding: 0.85rem !important; }
+  .pl-title { font-size: 1.75rem; }
 }
 """
 
@@ -277,7 +307,7 @@ def _diff_heatmap(before_bgr: np.ndarray, after_bgr: np.ndarray, gain: float = 5
     return cv2.applyColorMap(mag, cv2.COLORMAP_INFERNO)
 
 
-def _empty_status(msg: str = "Drop a phone photo to begin.") -> str:
+def _empty_status(msg: str = "Upload a phone photo — result appears automatically.") -> str:
     return f'<div class="pl-status">{msg}</div>'
 
 
@@ -290,12 +320,12 @@ def _status_html(info: dict, delta: dict | None = None) -> str:
         html += f" — {blurb}"
     if delta:
         html += (
-            f'<br/><span class="pl-delta">Δ tone {delta["tone_pct"]:.1f}%'
+            f'<span class="pl-delta">Δ tone {delta["tone_pct"]:.1f}%'
             f' · colour {delta["colour_pct"]:.1f}%'
             f' · mean ΔE {delta["mean_dE"]:.3f}</span>'
         )
     if score_txt:
-        html += f"<br/><span class='pl-delta'>Scene cues: {score_txt}</span>"
+        html += f'<span class="pl-cues">Scene cues: {score_txt}</span>'
     html += "</div>"
     return html
 
@@ -412,7 +442,11 @@ def build_demo():
     examples = _example_paths()
     theme = _studio_theme()
     major = _gradio_major()
-    blocks_kw: dict = {"title": "Phone Look Studio", "fill_height": False}
+    blocks_kw: dict = {
+        "title": "Phone Look Studio",
+        "fill_height": False,
+        "fill_width": True,
+    }
     if major < 6:
         blocks_kw["theme"] = theme
         blocks_kw["css"] = STUDIO_CSS
@@ -427,36 +461,44 @@ def build_demo():
         gr.HTML(
             """
             <div class="pl-hero">
-              <p class="pl-kicker">DA3021 · iQOO Neo 9 Pro → premium-camera look</p>
-              <h1 class="pl-title">Phone Look Studio</h1>
-              <p class="pl-sub">
-                Drag the seam to compare before → after. Upload a phone photo,
-                pick a camera look, then slide.
-              </p>
+              <div class="pl-hero-copy">
+                <p class="pl-kicker">DA3021 · iQOO Neo 9 Pro → premium-camera look</p>
+                <h1 class="pl-title">Phone Look Studio</h1>
+                <p class="pl-sub">Upload a phone photo. Drag the seam to compare before and after.</p>
+              </div>
             </div>
             """
         )
 
-        with gr.Row(equal_height=False):
-            with gr.Column(scale=4, min_width=260):
-                photo = gr.Image(
-                    type="pil",
-                    label="Phone photo",
-                    height=200,
-                    sources=["upload", "clipboard"],
-                )
+        # Controls strip — full width, readable
+        with gr.Row(equal_height=True):
+            photo = gr.Image(
+                type="pil",
+                label="1 · Phone photo",
+                height=180,
+                sources=["upload", "clipboard"],
+                scale=3,
+            )
+            with gr.Column(scale=4):
                 look = gr.Dropdown(
                     looks,
                     value="Premium camera",
-                    label="Camera look",
+                    label="2 · Camera look",
                 )
                 strength = gr.Slider(
-                    0.0, 1.0, value=0.85, step=0.05, label="Strength"
+                    0.0, 1.0, value=0.9, step=0.05, label="3 · Strength"
                 )
                 with gr.Row():
                     run_btn = gr.Button("Re-run", variant="secondary", scale=1)
-                    cmp_btn = gr.Button("Compare all looks", scale=2)
-
+                    cmp_btn = gr.Button("Compare all looks", variant="primary", scale=2)
+            with gr.Column(scale=3):
+                view_mode = gr.Radio(
+                    ["Slider", "Side-by-side", "Difference"]
+                    if use_slider
+                    else ["Side-by-side", "Difference"],
+                    value=default_view,
+                    label="Compare view",
+                )
                 with gr.Accordion("Advanced", open=False):
                     mode = gr.Radio(
                         ["Auto", "Single model"],
@@ -472,43 +514,34 @@ def build_demo():
                         label="Single model",
                     )
 
-            with gr.Column(scale=8, min_width=360):
-                view_mode = gr.Radio(
-                    ["Slider", "Side-by-side", "Difference"]
-                    if use_slider
-                    else ["Side-by-side", "Difference"],
-                    value=default_view,
-                    label="Compare view",
-                )
-
-                slider = gr.ImageSlider(
-                    label="Before → After (drag the seam)",
-                    type="pil",
-                    height=380,
-                    max_height=420,
-                    slider_position=50,
-                    interactive=False,
-                    elem_classes=["pl-slider"],
-                    visible=use_slider,
-                )
-
-                with gr.Row(visible=not use_slider) as side_row:
-                    before = gr.Image(type="pil", label="Before", height=320)
-                    after = gr.Image(type="pil", label="After", height=320)
-
-                diff_img = gr.Image(
-                    type="pil",
-                    label="Difference (brighter = larger edit)",
-                    height=360,
-                    visible=False,
-                )
-                scenario_md = gr.HTML(_empty_status())
+        # Dominant stage
+        with gr.Column(elem_classes=["pl-stage"]):
+            slider = gr.ImageSlider(
+                label="Before → After · drag the seam",
+                type="pil",
+                height=560,
+                max_height=680,
+                slider_position=45,
+                interactive=False,
+                elem_classes=["pl-slider"],
+                visible=use_slider,
+            )
+            with gr.Row(visible=not use_slider) as side_row:
+                before = gr.Image(type="pil", label="Before", height=480, scale=1)
+                after = gr.Image(type="pil", label="After", height=480, scale=1)
+            diff_img = gr.Image(
+                type="pil",
+                label="Difference map · brighter = larger edit",
+                height=520,
+                visible=False,
+            )
+            scenario_md = gr.HTML(_empty_status())
 
         with gr.Accordion("Look strip (all camera looks)", open=False):
             gallery = gr.Gallery(
                 label="Look strip",
                 columns=3,
-                height=200,
+                height=240,
                 object_fit="contain",
             )
 
@@ -535,7 +568,6 @@ def build_demo():
         photo.change(run, inputs, run_outs)
         look.change(run, inputs, run_outs)
         strength.release(run, inputs, run_outs)
-
         view_mode.change(
             switch_view,
             [view_mode, st_before, st_after],
@@ -549,45 +581,43 @@ def build_demo():
 def _studio_theme():
     import gradio as gr
 
-    # Base (not Soft): Soft+amber paints yellow label chips that hide light text.
-    return gr.themes.Base(
-        primary_hue="stone",
+    return gr.themes.Default(
+        primary_hue="yellow",
         secondary_hue="stone",
         neutral_hue="stone",
-        font=gr.themes.GoogleFont("Sora"),
+        font=gr.themes.GoogleFont("DM Sans"),
         font_mono=gr.themes.GoogleFont("IBM Plex Mono"),
-        text_size="md",
+        text_size="lg",
     ).set(
-        body_background_fill="#12100e",
-        body_background_fill_dark="#12100e",
-        body_text_color="#f3eee6",
-        body_text_color_dark="#f3eee6",
-        body_text_color_subdued="#b7aea2",
-        block_background_fill="#221e19",
-        block_background_fill_dark="#221e19",
-        block_border_color="#3a342c",
-        block_border_color_dark="#3a342c",
-        block_label_background_fill="#221e19",
-        block_label_background_fill_dark="#221e19",
-        block_label_text_color="#f3eee6",
-        block_label_text_color_dark="#f3eee6",
-        block_title_text_color="#f3eee6",
-        block_title_text_color_dark="#f3eee6",
-        input_background_fill="#12100e",
-        input_background_fill_dark="#12100e",
-        input_border_color="#4a4339",
-        input_border_color_dark="#4a4339",
-        input_placeholder_color="#8a8074",
-        input_placeholder_color_dark="#8a8074",
-        button_primary_background_fill="#e0b35a",
-        button_primary_background_fill_hover="#ebc474",
-        button_primary_text_color="#1a140c",
-        button_secondary_background_fill="#2a241c",
-        button_secondary_background_fill_hover="#342c22",
-        button_secondary_text_color="#f3eee6",
-        border_color_primary="#3a342c",
-        border_color_accent="#e0b35a",
-        color_accent="#e0b35a",
+        body_background_fill="#0f0e0c",
+        body_background_fill_dark="#0f0e0c",
+        body_text_color="#f7f2ea",
+        body_text_color_dark="#f7f2ea",
+        body_text_color_subdued="#d2c8b8",
+        block_background_fill="#1a1714",
+        block_background_fill_dark="#1a1714",
+        block_border_color="#3f382f",
+        block_border_color_dark="#3f382f",
+        block_label_background_fill="#1a1714",
+        block_label_background_fill_dark="#1a1714",
+        block_label_text_color="#f7f2ea",
+        block_label_text_color_dark="#f7f2ea",
+        block_title_text_color="#f7f2ea",
+        block_title_text_color_dark="#f7f2ea",
+        input_background_fill="#0c0b09",
+        input_background_fill_dark="#0c0b09",
+        input_border_color="#5a5248",
+        input_border_color_dark="#5a5248",
+        input_placeholder_color="#9a9082",
+        input_placeholder_color_dark="#9a9082",
+        button_primary_background_fill="#f0c14d",
+        button_primary_background_fill_hover="#f5cf6e",
+        button_primary_text_color="#1a1408",
+        button_secondary_background_fill="#2b261f",
+        button_secondary_background_fill_hover="#3a3329",
+        button_secondary_text_color="#f7f2ea",
+        border_color_primary="#3f382f",
+        color_accent="#f0c14d",
         shadow_drop="none",
         shadow_drop_lg="none",
     )
