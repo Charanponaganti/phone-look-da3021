@@ -33,11 +33,11 @@ def enhance_bgr(
     strength: float = 0.75,
     mode: str = "auto",
     preset: str = "Balanced",
-    look: str = "Auto scene",
+    look: str = "Premium camera",
     return_info: bool = False,
 ):
     """
-    mode='auto'  → cascade / named look (default, best for demos)
+    mode='auto'  → phone → premium-camera cascade (default)
     mode='model' → single trained JSON model
     """
     if mode == "auto":

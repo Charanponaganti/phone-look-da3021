@@ -399,12 +399,13 @@ def _unsharp_L(lab: np.ndarray, amount: float, radius: float = 1.2) -> np.ndarra
     return out
 
 
-# Named "turn into" looks — cascade + Lab finishers (demo-friendly, CPU-only).
+# Camera-look modes: phone capture → more DSLR / expensive-camera finish.
+# (Not Instagram filters — tone, colour, clarity like a better sensor + ISP.)
 LOOK_MODES = {
-    "Auto scene": {
-        "blurb": "Detect scene and enhance",
+    "Premium camera": {
+        "blurb": "Phone → better-camera colour, tone & clarity",
         "force_scenario": None,
-        "preset": None,
+        "preset": "Balanced",
         "dehaze_boost": 1.0,
         "warm": 0.0,
         "cool": 0.0,
@@ -415,8 +416,36 @@ LOOK_MODES = {
         "clarity_boost": 1.0,
         "max_d_scale": 1.0,
     },
-    "Clear Fog": {
-        "blurb": "Lift haze / washed skies",
+    "Natural DSLR": {
+        "blurb": "Subtle Canon-like grade — faithful, not punchy",
+        "force_scenario": None,
+        "preset": "Natural",
+        "dehaze_boost": 0.7,
+        "warm": 0.02,
+        "cool": 0.0,
+        "teal_orange": 0.0,
+        "crush": 0.0,
+        "fade": 0.0,
+        "mono": False,
+        "clarity_boost": 0.85,
+        "max_d_scale": 0.85,
+    },
+    "Vivid DSLR": {
+        "blurb": "Stronger colour & micro-contrast like a flagship phone/ISP",
+        "force_scenario": None,
+        "preset": "Punchy",
+        "dehaze_boost": 0.85,
+        "warm": 0.02,
+        "cool": 0.0,
+        "teal_orange": 0.08,
+        "crush": 0.02,
+        "fade": 0.0,
+        "mono": False,
+        "clarity_boost": 1.15,
+        "max_d_scale": 1.05,
+    },
+    "Clear haze": {
+        "blurb": "Recover foggy / washed phone shots",
         "force_scenario": "haze",
         "preset": "Punchy",
         "dehaze_boost": 1.35,
@@ -429,89 +458,33 @@ LOOK_MODES = {
         "clarity_boost": 1.15,
         "max_d_scale": 1.15,
     },
-    "Night Lift": {
-        "blurb": "Open shadows, keep night mood",
+    "Low light": {
+        "blurb": "Lift dark phone shots without neon colour",
         "force_scenario": "night",
         "preset": "Balanced",
         "dehaze_boost": 0.4,
         "warm": 0.0,
-        "cool": 0.04,
+        "cool": 0.03,
         "teal_orange": 0.0,
-        "crush": 0.04,
+        "crush": 0.03,
         "fade": 0.0,
         "mono": False,
         "clarity_boost": 0.85,
-        "max_d_scale": 1.2,
+        "max_d_scale": 1.15,
     },
-    "Golden Hour": {
-        "blurb": "Warm sunset colour grade",
-        "force_scenario": "sunset",
-        "preset": "Natural",
-        "dehaze_boost": 0.35,
-        "warm": 0.14,
-        "cool": 0.0,
-        "teal_orange": 0.0,
-        "crush": 0.03,
-        "fade": 0.04,
-        "mono": False,
-        "clarity_boost": 0.75,
-        "max_d_scale": 0.85,
-    },
-    "Cinematic": {
-        "blurb": "Teal shadows · warm mids",
-        "force_scenario": None,
-        "preset": "Balanced",
-        "dehaze_boost": 0.7,
-        "warm": 0.0,
-        "cool": 0.0,
-        "teal_orange": 0.55,
-        "crush": 0.08,
-        "fade": 0.05,
-        "mono": False,
-        "clarity_boost": 1.05,
-        "max_d_scale": 1.0,
-    },
-    "Soft Portrait": {
-        "blurb": "Skin-safe, gentle contrast",
+    "Portrait safe": {
+        "blurb": "Skin-safe premium look — less sharpen, gentler colour",
         "force_scenario": "portrait",
         "preset": "Natural",
         "dehaze_boost": 0.25,
-        "warm": 0.05,
+        "warm": 0.04,
         "cool": 0.0,
         "teal_orange": 0.0,
         "crush": 0.0,
-        "fade": 0.06,
+        "fade": 0.04,
         "mono": False,
         "clarity_boost": 0.55,
         "max_d_scale": 0.7,
-    },
-    "HDR Punch": {
-        "blurb": "Local contrast + colour pop",
-        "force_scenario": None,
-        "preset": "Punchy",
-        "dehaze_boost": 0.9,
-        "warm": 0.02,
-        "cool": 0.0,
-        "teal_orange": 0.15,
-        "crush": 0.02,
-        "fade": 0.0,
-        "mono": False,
-        "clarity_boost": 1.25,
-        "max_d_scale": 1.1,
-    },
-    "Mono Print": {
-        "blurb": "Clean black & white print look",
-        "force_scenario": None,
-        "preset": "Balanced",
-        "dehaze_boost": 0.6,
-        "warm": 0.0,
-        "cool": 0.0,
-        "teal_orange": 0.0,
-        "crush": 0.06,
-        "fade": 0.02,
-        "mono": True,
-        "clarity_boost": 1.2,
-        "max_d_scale": 1.05,
     },
 }
 
@@ -563,11 +536,23 @@ def enhance_auto(
     bgr: np.ndarray,
     strength: float = 0.75,
     preset: str = "Balanced",
-    look: str = "Auto scene",
+    look: str = "Premium camera",
     return_info: bool = False,
 ):
-    """Full Auto cascade → BGR uint8 (optionally with scenario / look info)."""
-    look_cfg = LOOK_MODES.get(look, LOOK_MODES["Auto scene"])
+    """Phone → premium-camera cascade → BGR uint8."""
+    # Back-compat aliases from earlier creative-mode names
+    aliases = {
+        "Auto scene": "Premium camera",
+        "Clear Fog": "Clear haze",
+        "Night Lift": "Low light",
+        "Soft Portrait": "Portrait safe",
+        "HDR Punch": "Vivid DSLR",
+        "Golden Hour": "Natural DSLR",
+        "Cinematic": "Vivid DSLR",
+        "Mono Print": "Natural DSLR",
+    }
+    look = aliases.get(look, look)
+    look_cfg = LOOK_MODES.get(look, LOOK_MODES["Premium camera"])
     if look_cfg.get("preset"):
         preset = look_cfg["preset"]
     cfg = dict(PRESETS.get(preset, PRESETS["Balanced"]))
@@ -580,7 +565,7 @@ def enhance_auto(
 
     s = float(np.clip(strength * tune["strength"], 0.2, 1.25))
     hz = scores.get("haze", 0.0)
-    if scenario == "haze" or look == "Clear Fog":
+    if scenario == "haze" or look == "Clear haze":
         hz = max(hz, 0.65)
 
     dehaze_amt = (
@@ -590,7 +575,7 @@ def enhance_auto(
         * float(look_cfg.get("dehaze_boost", 1.0))
         * (0.15 + 0.85 * max(hz, 0.35 if scenario == "haze" else 0.0))
     )
-    if scenario != "haze" and look != "Clear Fog":
+    if scenario != "haze" and look != "Clear haze":
         dehaze_amt *= 0.5
         if hz < 0.45:
             dehaze_amt = 0.0
@@ -635,12 +620,15 @@ def enhance_auto(
     out = lab01_to_bgr(lab)
     if return_info:
         top = sorted(scores.items(), key=lambda kv: -kv[1])[:3]
-        look_label = look if look != "Auto scene" else tune["label"]
+        if look in (None, "", "Premium camera"):
+            label = f"Premium camera · {tune['label']}"
+        else:
+            label = look
         info = {
             "scenario": scenario,
             "detected": detected,
             "look": look,
-            "label": look_label if look != "Auto scene" else f"Auto · {tune['label']}",
+            "label": label,
             "scores": {k: round(float(v), 3) for k, v in top},
             "blurb": look_cfg.get("blurb", ""),
         }

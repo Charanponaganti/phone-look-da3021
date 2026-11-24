@@ -178,7 +178,7 @@ def build_demo():
                 mode="auto",
                 strength=float(strength),
                 preset=preset,
-                look=look or "Auto scene",
+                look=look or "Premium camera",
                 return_info=True,
             )
         else:
@@ -210,16 +210,7 @@ def build_demo():
             photo = Image.fromarray(photo)
         bgr = _resize_max(_pil_to_bgr(photo), max_side=900)
         gallery = []
-        for look_name in (
-            "Auto scene",
-            "Clear Fog",
-            "Night Lift",
-            "Golden Hour",
-            "Cinematic",
-            "Soft Portrait",
-            "HDR Punch",
-            "Mono Print",
-        ):
+        for look_name in list_looks():
             out = enhance_bgr(
                 bgr, mode="auto", strength=float(strength), look=look_name
             )
@@ -238,11 +229,12 @@ def build_demo():
         gr.HTML(
             """
             <div class="pl-hero">
-              <p class="pl-kicker">DA3021 · Phone → better look</p>
+              <p class="pl-kicker">DA3021 · cheap phone → expensive-camera look</p>
               <h1 class="pl-title">Phone Look</h1>
               <p class="pl-sub">
-                Pick a look — Clear Fog, Night Lift, Golden Hour, Cinematic, Soft Portrait,
-                HDR Punch, Mono — or let Auto scene detect fog / night / sunset / portrait.
+                Good cameras cost money. This pipeline learns colour &amp; tone from
+                phone↔DSLR pairs so ordinary phone shots get a cleaner, richer,
+                more DSLR-like finish — without buying new glass.
               </p>
             </div>
             """
@@ -258,8 +250,8 @@ def build_demo():
                 )
                 look = gr.Dropdown(
                     list_looks(),
-                    value="Auto scene",
-                    label="Look · turn into",
+                    value="Premium camera",
+                    label="Camera look",
                 )
                 with gr.Row():
                     mode = gr.Radio(
