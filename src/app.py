@@ -1,5 +1,5 @@
 """
-Phone Look Studio — Gradio Blocks UI.
+Phone Look — Gradio UI ("Contact Sheet" lab layout).
 
 Run:
   python -m src.app
@@ -22,206 +22,246 @@ from .pipeline import list_looks, list_presets
 
 EXAMPLES_DIR = ROOT / "assets" / "examples"
 
+# Contact Sheet: paper / press / darkroom proofing — not dark-gold "AI studio".
 STUDIO_CSS = """
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=DM+Sans:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap');
 
 :root {
-  --pl-bg: #0f0e0c;
-  --pl-panel: #1a1714;
-  --pl-ink: #f7f2ea;
-  --pl-muted: #d2c8b8;
-  --pl-line: rgba(247, 242, 234, 0.16);
-  --pl-accent: #f0c14d;
-  --pl-accent-ink: #1a1408;
+  --bg: #F4F2ED;
+  --ink: #17181A;
+  --muted: #6B6E73;
+  --line: #DAD7D0;
+  --stage: #E8E6E1;
+  --accent: #1F4FD8;
+  --accent-ink: #FFFFFF;
 }
 
+* { border-radius: 2px !important; box-shadow: none !important; }
+
 html, body, .gradio-container, .main, footer, .wrap {
-  background: var(--pl-bg) !important;
-  color: var(--pl-ink) !important;
-  font-family: "DM Sans", system-ui, sans-serif !important;
-  font-size: 17px !important;
+  background: var(--bg) !important;
+  color: var(--ink) !important;
+  font-family: "IBM Plex Mono", ui-monospace, monospace !important;
+  font-size: 13px !important;
 }
 
 .gradio-container {
   max-width: 100% !important;
   width: 100% !important;
-  padding: 1.25rem 1.75rem 2.5rem !important;
   margin: 0 !important;
+  padding: 0 !important;
 }
 
-/* Kill Gradio's narrow centered column */
 .gradio-container .main,
-.gradio-container > .main,
 div.main {
   max-width: 100% !important;
   width: 100% !important;
+  padding: 0 !important;
 }
 
-/* Labels: large + high contrast */
+/* ---- masthead ---- */
+.pl-mast {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 14px 18px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg);
+}
+
+.pl-mark {
+  font-family: "Newsreader", Georgia, serif !important;
+  font-size: 1.55rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  margin: 0;
+  line-height: 1;
+}
+
+.pl-mark span {
+  font-family: "IBM Plex Mono", monospace !important;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-left: 0.65rem;
+  vertical-align: middle;
+}
+
+.pl-line {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+
+/* ---- toolbar / stage / status strips ---- */
+.pl-toolbar {
+  padding: 8px 14px !important;
+  border-bottom: 1px solid var(--line) !important;
+  background: var(--bg) !important;
+}
+
+.pl-stage {
+  background: var(--stage) !important;
+  padding: 12px 14px 8px !important;
+  border-bottom: 1px solid var(--line) !important;
+  min-height: 62vh;
+}
+
+.pl-foot {
+  padding: 10px 18px 18px !important;
+  background: var(--bg) !important;
+}
+
+/* Labels: mono uppercase, quiet */
 .block .label-wrap,
 .block .label-wrap span,
 .block-label,
 .block > label,
 label,
-span[data-testid="block-info"],
-.svelte-1gfkn6j {
-  color: var(--pl-ink) !important;
+span[data-testid="block-info"] {
+  color: var(--muted) !important;
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
   opacity: 1 !important;
-  font-size: 1rem !important;
-  font-weight: 600 !important;
+  font-family: "IBM Plex Mono", monospace !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
 }
 
 .block {
-  background: var(--pl-panel) !important;
-  border: 1px solid var(--pl-line) !important;
-  border-radius: 14px !important;
-  padding-top: 0.35rem !important;
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  box-shadow: none !important;
 }
 
-/* Inputs / numbers readable */
+/* Inputs */
 input, textarea, select,
 input[type="number"],
-input[type="text"],
-.secondary-wrap input {
-  color: var(--pl-ink) !important;
-  background: #0c0b09 !important;
-  border: 1px solid #5a5248 !important;
-  border-radius: 10px !important;
-  font-size: 1.05rem !important;
-  font-weight: 600 !important;
+input[type="text"] {
+  color: var(--ink) !important;
+  background: #FFFFFF !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 2px !important;
+  font-family: "IBM Plex Mono", monospace !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
   opacity: 1 !important;
-  -webkit-text-fill-color: var(--pl-ink) !important;
-  min-height: 2.4rem !important;
+  -webkit-text-fill-color: var(--ink) !important;
+  min-height: 2.15rem !important;
 }
 
 .slider input[type="number"] {
-  width: 4rem !important;
-  min-width: 4rem !important;
-  font-size: 1.1rem !important;
-}
-
-/* Radio options */
-[role="radiogroup"] label,
-fieldset label,
-.wrap label span {
-  color: var(--pl-ink) !important;
-  background: transparent !important;
-  font-size: 1rem !important;
-  font-weight: 500 !important;
+  width: 3.6rem !important;
+  min-width: 3.6rem !important;
 }
 
 [role="radiogroup"] {
-  gap: 0.5rem 1.1rem !important;
+  gap: 0 !important;
+  border: 1px solid var(--line) !important;
+  display: inline-flex !important;
   flex-wrap: wrap !important;
+  background: #fff !important;
+}
+
+[role="radiogroup"] label,
+fieldset label,
+.wrap label span {
+  color: var(--ink) !important;
+  background: transparent !important;
+  font-family: "IBM Plex Mono", monospace !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  padding: 0.45rem 0.75rem !important;
+  border-right: 1px solid var(--line) !important;
+  margin: 0 !important;
+}
+
+[role="radiogroup"] label:last-child {
+  border-right: none !important;
+}
+
+[role="radiogroup"] label:has(input:checked),
+[role="radiogroup"] input:checked + span {
+  background: var(--ink) !important;
+  color: #fff !important;
 }
 
 button {
-  font-size: 1.05rem !important;
-  font-weight: 700 !important;
-  min-height: 2.75rem !important;
-  border-radius: 10px !important;
+  font-family: "IBM Plex Mono", monospace !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+  min-height: 2.25rem !important;
+  border-radius: 2px !important;
+  box-shadow: none !important;
 }
 
 button.primary, .gr-button-primary {
-  background: var(--pl-accent) !important;
-  color: var(--pl-accent-ink) !important;
-  border: none !important;
+  background: var(--accent) !important;
+  color: var(--accent-ink) !important;
+  border: 1px solid var(--accent) !important;
 }
 
 button.secondary, .gr-button-secondary {
-  background: #2b261f !important;
-  color: var(--pl-ink) !important;
-  border: 1px solid #5a5248 !important;
+  background: transparent !important;
+  color: var(--ink) !important;
+  border: 1px solid var(--line) !important;
 }
 
-.pl-hero {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 0.75rem 1.5rem;
-  padding: 0.25rem 0 1rem;
-  margin-bottom: 0.85rem;
-  border-bottom: 1px solid var(--pl-line);
-}
-
-.pl-hero-copy { max-width: 52rem; }
-
-.pl-kicker {
-  margin: 0 0 0.35rem;
-  font-size: 0.8rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--pl-accent);
-  font-weight: 700;
-}
-
-.pl-title {
-  margin: 0 0 0.4rem;
-  font-family: "Fraunces", Georgia, serif !important;
-  font-size: clamp(2rem, 4vw, 2.85rem);
-  font-weight: 700;
-  line-height: 1.05;
-  color: var(--pl-ink);
-  letter-spacing: -0.02em;
-}
-
-.pl-sub {
-  margin: 0;
-  color: var(--pl-muted);
-  font-size: 1.08rem;
-  line-height: 1.45;
-  font-weight: 500;
+/* Stage images */
+.pl-stage .image-container,
+.pl-stage img {
+  background: var(--stage) !important;
+  max-height: min(68vh, 740px) !important;
 }
 
 .pl-status {
-  margin-top: 0.65rem;
-  padding: 0.95rem 1.1rem;
-  border-radius: 12px;
-  border: 1px solid rgba(240, 193, 77, 0.35);
-  background: #241f18;
-  color: var(--pl-ink);
-  font-size: 1.05rem;
-  line-height: 1.5;
-  font-weight: 500;
+  margin: 0;
+  padding: 0;
+  color: var(--ink);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+  line-height: 1.55;
+  border: none;
+  background: transparent;
 }
 
 .pl-status strong {
-  color: var(--pl-accent);
-  font-size: 1.12rem;
+  color: var(--ink);
+  font-weight: 600;
 }
 
 .pl-status .pl-delta {
-  display: block;
-  margin-top: 0.35rem;
-  color: #efe6d6;
-  font-size: 1.02rem;
-  font-weight: 600;
-  letter-spacing: 0.01em;
+  color: var(--muted);
+  display: inline;
+  margin-left: 0.65rem;
 }
 
 .pl-status .pl-cues {
   display: block;
-  margin-top: 0.25rem;
-  color: #cfc4b4;
-  font-size: 0.95rem;
-}
-
-/* Bigger image stage */
-.pl-stage .image-container,
-.pl-stage img,
-.pl-slider img {
-  max-height: min(68vh, 720px) !important;
+  margin-top: 0.2rem;
+  color: var(--muted);
+  font-size: 11px;
 }
 
 footer { display: none !important; }
 
 @media (max-width: 900px) {
-  .gradio-container { padding: 0.85rem !important; }
-  .pl-title { font-size: 1.75rem; }
+  .pl-mast { flex-direction: column; align-items: flex-start; gap: 0.35rem; }
+  .pl-stage { min-height: 48vh; }
 }
 """
 
@@ -307,26 +347,26 @@ def _diff_heatmap(before_bgr: np.ndarray, after_bgr: np.ndarray, gain: float = 5
     return cv2.applyColorMap(mag, cv2.COLORMAP_INFERNO)
 
 
-def _empty_status(msg: str = "Upload a phone photo — result appears automatically.") -> str:
-    return f'<div class="pl-status">{msg}</div>'
+def _empty_status(msg: str = "ready — upload a phone photo") -> str:
+    return f'<p class="pl-status">{msg}</p>'
 
 
 def _status_html(info: dict, delta: dict | None = None) -> str:
     scores = info.get("scores") or {}
     score_txt = " · ".join(f"{k} {v}" for k, v in scores.items()) if scores else ""
     blurb = info.get("blurb") or ""
-    html = f'<div class="pl-status"><strong>{info.get("label", "?")}</strong>'
+    html = f'<p class="pl-status"><strong>{info.get("label", "?")}</strong>'
     if blurb:
         html += f" — {blurb}"
     if delta:
         html += (
             f'<span class="pl-delta">Δ tone {delta["tone_pct"]:.1f}%'
             f' · colour {delta["colour_pct"]:.1f}%'
-            f' · mean ΔE {delta["mean_dE"]:.3f}</span>'
+            f' · ΔE {delta["mean_dE"]:.3f}</span>'
         )
     if score_txt:
-        html += f'<span class="pl-cues">Scene cues: {score_txt}</span>'
-    html += "</div>"
+        html += f'<span class="pl-cues">{score_txt}</span>'
+    html += "</p>"
     return html
 
 
@@ -443,7 +483,7 @@ def build_demo():
     theme = _studio_theme()
     major = _gradio_major()
     blocks_kw: dict = {
-        "title": "Phone Look Studio",
+        "title": "retouch · lab",
         "fill_height": False,
         "fill_width": True,
     }
@@ -460,96 +500,89 @@ def build_demo():
 
         gr.HTML(
             """
-            <div class="pl-hero">
-              <div class="pl-hero-copy">
-                <p class="pl-kicker">DA3021 · iQOO Neo 9 Pro → premium-camera look</p>
-                <h1 class="pl-title">Phone Look Studio</h1>
-                <p class="pl-sub">Upload a phone photo. Drag the seam to compare before and after.</p>
-              </div>
-            </div>
+            <header class="pl-mast">
+              <h1 class="pl-mark">retouch · lab<span>DA3021</span></h1>
+              <p class="pl-line">Upload a phone photo. Compare before and after.</p>
+            </header>
             """
         )
 
-        # Controls strip — full width, readable
-        with gr.Row(equal_height=True):
+        with gr.Row(elem_classes=["pl-toolbar"], equal_height=True):
             photo = gr.Image(
                 type="pil",
-                label="1 · Phone photo",
-                height=180,
+                label="Upload",
+                height=120,
                 sources=["upload", "clipboard"],
-                scale=3,
+                scale=2,
             )
-            with gr.Column(scale=4):
-                look = gr.Dropdown(
-                    looks,
-                    value="Premium camera",
-                    label="2 · Camera look",
-                )
-                strength = gr.Slider(
-                    0.0, 1.0, value=0.9, step=0.05, label="3 · Strength"
-                )
-                with gr.Row():
-                    run_btn = gr.Button("Re-run", variant="secondary", scale=1)
-                    cmp_btn = gr.Button("Compare all looks", variant="primary", scale=2)
-            with gr.Column(scale=3):
-                view_mode = gr.Radio(
-                    ["Slider", "Side-by-side", "Difference"]
-                    if use_slider
-                    else ["Side-by-side", "Difference"],
-                    value=default_view,
-                    label="Compare view",
-                )
-                with gr.Accordion("Advanced", open=False):
-                    mode = gr.Radio(
-                        ["Auto", "Single model"],
-                        value="Auto",
-                        label="Engine",
-                    )
-                    preset = gr.Dropdown(
-                        list_presets(), value="Balanced", label="Base preset"
-                    )
-                    model_name = gr.Dropdown(
-                        choices=model_names or ["(none)"],
-                        value=fallback_model,
-                        label="Single model",
-                    )
+            look = gr.Dropdown(
+                looks,
+                value="Premium camera",
+                label="Look",
+                scale=2,
+            )
+            strength = gr.Slider(
+                0.0, 1.0, value=0.9, step=0.05, label="Strength", scale=3
+            )
+            with gr.Column(scale=2, min_width=160):
+                run_btn = gr.Button("Enhance", variant="primary")
+                cmp_btn = gr.Button("All looks", variant="secondary")
 
-        # Dominant stage
         with gr.Column(elem_classes=["pl-stage"]):
             slider = gr.ImageSlider(
-                label="Before → After · drag the seam",
+                label="Before → After",
                 type="pil",
-                height=560,
-                max_height=680,
+                height=580,
+                max_height=720,
                 slider_position=45,
                 interactive=False,
-                elem_classes=["pl-slider"],
                 visible=use_slider,
             )
             with gr.Row(visible=not use_slider) as side_row:
-                before = gr.Image(type="pil", label="Before", height=480, scale=1)
-                after = gr.Image(type="pil", label="After", height=480, scale=1)
+                before = gr.Image(type="pil", label="Before", height=480)
+                after = gr.Image(type="pil", label="After", height=480)
             diff_img = gr.Image(
                 type="pil",
-                label="Difference map · brighter = larger edit",
-                height=520,
+                label="Difference",
+                height=500,
                 visible=False,
             )
-            scenario_md = gr.HTML(_empty_status())
-
-        with gr.Accordion("Look strip (all camera looks)", open=False):
-            gallery = gr.Gallery(
-                label="Look strip",
-                columns=3,
-                height=240,
-                object_fit="contain",
+            view_mode = gr.Radio(
+                ["Slider", "Side-by-side", "Difference"]
+                if use_slider
+                else ["Side-by-side", "Difference"],
+                value=default_view,
+                label="Compare",
             )
+
+        with gr.Column(elem_classes=["pl-foot"]):
+            scenario_md = gr.HTML(_empty_status())
+            with gr.Accordion("Advanced", open=False):
+                mode = gr.Radio(
+                    ["Auto", "Single model"],
+                    value="Auto",
+                    label="Engine",
+                )
+                preset = gr.Dropdown(
+                    list_presets(), value="Balanced", label="Preset"
+                )
+                model_name = gr.Dropdown(
+                    choices=model_names or ["(none)"],
+                    value=fallback_model,
+                    label="Model",
+                )
+                gallery = gr.Gallery(
+                    label="Look strip",
+                    columns=3,
+                    height=200,
+                    object_fit="contain",
+                )
 
         if examples:
             gr.Examples(
                 examples=examples,
                 inputs=photo,
-                label="Try an example",
+                label="Examples",
                 examples_per_page=8,
             )
 
@@ -581,43 +614,44 @@ def build_demo():
 def _studio_theme():
     import gradio as gr
 
-    return gr.themes.Default(
-        primary_hue="yellow",
-        secondary_hue="stone",
-        neutral_hue="stone",
-        font=gr.themes.GoogleFont("DM Sans"),
+    return gr.themes.Base(
+        primary_hue="blue",
+        secondary_hue="zinc",
+        neutral_hue="zinc",
+        font=gr.themes.GoogleFont("IBM Plex Mono"),
         font_mono=gr.themes.GoogleFont("IBM Plex Mono"),
-        text_size="lg",
+        text_size="md",
+        radius_size="none",
     ).set(
-        body_background_fill="#0f0e0c",
-        body_background_fill_dark="#0f0e0c",
-        body_text_color="#f7f2ea",
-        body_text_color_dark="#f7f2ea",
-        body_text_color_subdued="#d2c8b8",
-        block_background_fill="#1a1714",
-        block_background_fill_dark="#1a1714",
-        block_border_color="#3f382f",
-        block_border_color_dark="#3f382f",
-        block_label_background_fill="#1a1714",
-        block_label_background_fill_dark="#1a1714",
-        block_label_text_color="#f7f2ea",
-        block_label_text_color_dark="#f7f2ea",
-        block_title_text_color="#f7f2ea",
-        block_title_text_color_dark="#f7f2ea",
-        input_background_fill="#0c0b09",
-        input_background_fill_dark="#0c0b09",
-        input_border_color="#5a5248",
-        input_border_color_dark="#5a5248",
-        input_placeholder_color="#9a9082",
-        input_placeholder_color_dark="#9a9082",
-        button_primary_background_fill="#f0c14d",
-        button_primary_background_fill_hover="#f5cf6e",
-        button_primary_text_color="#1a1408",
-        button_secondary_background_fill="#2b261f",
-        button_secondary_background_fill_hover="#3a3329",
-        button_secondary_text_color="#f7f2ea",
-        border_color_primary="#3f382f",
-        color_accent="#f0c14d",
+        body_background_fill="#F4F2ED",
+        body_background_fill_dark="#F4F2ED",
+        body_text_color="#17181A",
+        body_text_color_dark="#17181A",
+        body_text_color_subdued="#6B6E73",
+        block_background_fill="#F4F2ED",
+        block_background_fill_dark="#F4F2ED",
+        block_border_color="#DAD7D0",
+        block_border_color_dark="#DAD7D0",
+        block_label_background_fill="#F4F2ED",
+        block_label_background_fill_dark="#F4F2ED",
+        block_label_text_color="#6B6E73",
+        block_label_text_color_dark="#6B6E73",
+        block_title_text_color="#17181A",
+        block_title_text_color_dark="#17181A",
+        input_background_fill="#FFFFFF",
+        input_background_fill_dark="#FFFFFF",
+        input_border_color="#DAD7D0",
+        input_border_color_dark="#DAD7D0",
+        input_placeholder_color="#6B6E73",
+        input_placeholder_color_dark="#6B6E73",
+        button_primary_background_fill="#1F4FD8",
+        button_primary_background_fill_hover="#163DB0",
+        button_primary_text_color="#FFFFFF",
+        button_secondary_background_fill="#F4F2ED",
+        button_secondary_background_fill_hover="#E8E6E1",
+        button_secondary_text_color="#17181A",
+        border_color_primary="#DAD7D0",
+        color_accent="#1F4FD8",
         shadow_drop="none",
         shadow_drop_lg="none",
     )
