@@ -9,4 +9,9 @@ from src.app import _studio_theme, build_demo
 demo = build_demo()
 
 if __name__ == "__main__":
-    demo.launch(server_name="0.0.0.0", server_port=7860, theme=_studio_theme())
+    demo.launch(
+        server_name="0.0.0.0",
+        server_port=7860,
+        theme=_studio_theme(),
+        show_error=True,
+    )
