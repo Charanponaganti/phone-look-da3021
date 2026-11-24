@@ -33,6 +33,7 @@ def enhance_bgr(
     strength: float = 0.75,
     mode: str = "auto",
     preset: str = "Balanced",
+    return_info: bool = False,
 ):
     """
     mode='auto'  → cascade (default, best for demos)
@@ -41,13 +42,16 @@ def enhance_bgr(
     if mode == "auto":
         from .pipeline import enhance_auto
 
-        return enhance_auto(img_bgr, strength=strength, preset=preset)
+        return enhance_auto(img_bgr, strength=strength, preset=preset, return_info=return_info)
 
     if model_obj is None:
         model_obj = load_model(get_best_model_path())
     lab = bgr_to_lab01(img_bgr)
     out_lab = apply_model_lab(lab, model_obj, strength=strength)
-    return lab01_to_bgr(out_lab)
+    out = lab01_to_bgr(out_lab)
+    if return_info:
+        return out, {"scenario": "model", "label": "Single model", "scores": {}}
+    return out
 
 
 def enhance_file(

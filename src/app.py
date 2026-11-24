@@ -73,12 +73,15 @@ def build_demo():
 
     def run(photo, mode, model_name, preset, strength):
         if photo is None:
-            return None, None
+            return None, None, ""
         if not isinstance(photo, Image.Image):
             photo = Image.fromarray(photo)
         bgr = _resize_max(_pil_to_bgr(photo))
+        info = {"label": "Single model", "scores": {}}
         if mode == "Auto":
-            out = enhance_bgr(bgr, mode="auto", strength=float(strength), preset=preset)
+            out, info = enhance_bgr(
+                bgr, mode="auto", strength=float(strength), preset=preset, return_info=True
+            )
         else:
             if not model_names:
                 raise gr.Error("No trained models found.")
@@ -89,7 +92,13 @@ def build_demo():
                 strength=float(strength),
                 mode="model",
             )
-        return _bgr_to_pil(bgr), _bgr_to_pil(out)
+            info = {"label": f"Single model · {name}", "scores": {}}
+        scores = info.get("scores") or {}
+        score_txt = ", ".join(f"{k}={v}" for k, v in scores.items()) if scores else ""
+        status = f"Detected: **{info.get('label', '?')}**"
+        if score_txt:
+            status += f"  \nTop scores: `{score_txt}`"
+        return _bgr_to_pil(bgr), _bgr_to_pil(out), status
 
     def compare(photo, strength):
         if photo is None:
@@ -117,8 +126,8 @@ def build_demo():
         gr.Markdown(
             """
 # Phone Look Studio — DA3021
-**Auto** cascade: exposure → course colour (tone L + matrix) → TinyResCNN → L-clarity,  
-with chroma clamps so sunsets/portraits stay sane. Or pick a single ladder model.
+**Auto** detects the scene (fog, night, sunset, portrait, backlight, indoor, vivid, detail, daylight)
+and tunes dehaze / exposure / colour / CNN / clarity. Or pick a single ladder model.
             """
         )
         with gr.Row():
@@ -134,6 +143,7 @@ with chroma clamps so sunsets/portraits stay sane. Or pick a single ladder model
                 strength = gr.Slider(0.0, 1.0, value=0.75, step=0.05, label="Strength")
                 run_btn = gr.Button("Enhance", variant="primary")
                 cmp_btn = gr.Button("Compare presets")
+                scenario_md = gr.Markdown("Detected: —")
             with gr.Column(scale=2):
                 with gr.Row():
                     before = gr.Image(type="pil", label="Before")
@@ -143,8 +153,9 @@ with chroma clamps so sunsets/portraits stay sane. Or pick a single ladder model
         if examples:
             gr.Examples(examples=examples, inputs=photo, label="Example DPED patches")
 
-        run_btn.click(run, [photo, mode, model_name, preset, strength], [before, after])
-        photo.change(run, [photo, mode, model_name, preset, strength], [before, after])
+        outs = [before, after, scenario_md]
+        run_btn.click(run, [photo, mode, model_name, preset, strength], outs)
+        photo.change(run, [photo, mode, model_name, preset, strength], outs)
         cmp_btn.click(compare, [photo, strength], [gallery])
 
     return demo
