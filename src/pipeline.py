@@ -379,7 +379,10 @@ def _blend_colour(lab: np.ndarray, amount: float) -> np.ndarray:
 def _apply_cnn(lab: np.ndarray, amount: float) -> np.ndarray:
     if not (MODELS / "tiny_cnn.json").exists() or amount <= 1e-6:
         return lab
-    from .tiny_cnn import apply_tiny_cnn_lab
+    try:
+        from .tiny_cnn import apply_tiny_cnn_lab
+    except ImportError:
+        return lab
 
     obj = _load("tiny_cnn.json")
     pred = apply_tiny_cnn_lab(lab.astype(np.float32), obj["payload"])

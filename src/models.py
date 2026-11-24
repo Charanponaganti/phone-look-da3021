@@ -337,7 +337,12 @@ def apply_model_lab(lab: np.ndarray, model_obj: dict, strength: float = 1.0) -> 
     elif kind == "root_poly_mlp":
         out = apply_root_poly_mlp(lab, payload)
     elif kind == "tiny_cnn":
-        from .tiny_cnn import apply_tiny_cnn_lab
+        try:
+            from .tiny_cnn import apply_tiny_cnn_lab
+        except ImportError as exc:
+            raise RuntimeError(
+                "tiny_cnn needs torch. Install requirements-train.txt locally."
+            ) from exc
 
         out = apply_tiny_cnn_lab(lab, payload)
     else:

@@ -121,8 +121,14 @@ def build_demo():
         return gallery
 
     examples = _example_paths()
+    theme = _studio_theme()
+    # Gradio 5: theme on Blocks. Gradio 6+: theme on launch().
+    major = int(gr.__version__.split(".", 1)[0])
+    blocks_kw: dict = {"title": "Phone Look Studio"}
+    if major < 6:
+        blocks_kw["theme"] = theme
 
-    with gr.Blocks(title="Phone Look Studio") as demo:
+    with gr.Blocks(**blocks_kw) as demo:
         gr.Markdown(
             """
 # Phone Look Studio — DA3021
@@ -182,9 +188,18 @@ def _studio_theme():
 def main():
     import os
 
+    import gradio as gr
+
     demo = build_demo()
     port = int(os.environ.get("PORT", "7860"))
-    demo.launch(server_name="0.0.0.0", server_port=port, theme=_studio_theme())
+    launch_kw: dict = {
+        "server_name": "0.0.0.0",
+        "server_port": port,
+        "show_error": True,
+    }
+    if int(gr.__version__.split(".", 1)[0]) >= 6:
+        launch_kw["theme"] = _studio_theme()
+    demo.launch(**launch_kw)
 
 
 if __name__ == "__main__":
