@@ -17,7 +17,7 @@ from PIL import Image
 from .apply import enhance_bgr, get_best_model_path
 from .models import load_model
 from .paths import MODELS, ROOT
-from .pipeline import list_presets
+from .pipeline import list_looks, list_presets
 
 EXAMPLES_DIR = ROOT / "assets" / "examples"
 
@@ -165,16 +165,21 @@ def build_demo():
             cache[name] = load_model(MODELS / name)
         return cache[name]
 
-    def run(photo, mode, model_name, preset, strength):
+    def run(photo, mode, look, model_name, preset, strength):
         if photo is None:
             return None, None, '<div class="pl-status">Drop a phone photo to begin.</div>'
         if not isinstance(photo, Image.Image):
             photo = Image.fromarray(photo)
         bgr = _resize_max(_pil_to_bgr(photo))
-        info = {"label": "Single model", "scores": {}}
+        info = {"label": "Single model", "scores": {}, "blurb": ""}
         if mode == "Auto":
             out, info = enhance_bgr(
-                bgr, mode="auto", strength=float(strength), preset=preset, return_info=True
+                bgr,
+                mode="auto",
+                strength=float(strength),
+                preset=preset,
+                look=look or "Auto scene",
+                return_info=True,
             )
         else:
             if not model_names:
@@ -186,12 +191,15 @@ def build_demo():
                 strength=float(strength),
                 mode="model",
             )
-            info = {"label": f"Single model · {name}", "scores": {}}
+            info = {"label": f"Single model · {name}", "scores": {}, "blurb": ""}
         scores = info.get("scores") or {}
         score_txt = " · ".join(f"{k} {v}" for k, v in scores.items()) if scores else ""
+        blurb = info.get("blurb") or ""
         status = f'<div class="pl-status"><strong>{info.get("label", "?")}</strong>'
+        if blurb:
+            status += f" — {blurb}"
         if score_txt:
-            status += f"<br/><span style='color:#a89f93'>{score_txt}</span>"
+            status += f"<br/><span style='color:#a89f93'>Scene cues: {score_txt}</span>"
         status += "</div>"
         return _bgr_to_pil(bgr), _bgr_to_pil(out), status
 
@@ -200,19 +208,22 @@ def build_demo():
             return []
         if not isinstance(photo, Image.Image):
             photo = Image.fromarray(photo)
-        bgr = _resize_max(_pil_to_bgr(photo), max_side=1000)
+        bgr = _resize_max(_pil_to_bgr(photo), max_side=900)
         gallery = []
-        for preset in ("Natural", "Balanced", "Punchy"):
-            out = enhance_bgr(bgr, mode="auto", strength=float(strength), preset=preset)
-            gallery.append((_bgr_to_pil(out), preset))
-        if fallback_model and (MODELS / fallback_model).exists():
+        for look_name in (
+            "Auto scene",
+            "Clear Fog",
+            "Night Lift",
+            "Golden Hour",
+            "Cinematic",
+            "Soft Portrait",
+            "HDR Punch",
+            "Mono Print",
+        ):
             out = enhance_bgr(
-                bgr,
-                model_obj=_get_model(fallback_model),
-                strength=float(strength),
-                mode="model",
+                bgr, mode="auto", strength=float(strength), look=look_name
             )
-            gallery.append((_bgr_to_pil(out), f"Single · {fallback_model}"))
+            gallery.append((_bgr_to_pil(out), look_name))
         return gallery
 
     examples = _example_paths()
@@ -230,8 +241,8 @@ def build_demo():
               <p class="pl-kicker">DA3021 · Phone → better look</p>
               <h1 class="pl-title">Phone Look</h1>
               <p class="pl-sub">
-                Scene-aware Auto cascade (fog, night, sunset, portrait, backlight, indoor…)
-                or a single ladder model — built for paired phone↔DSLR colour/tone learning.
+                Pick a look — Clear Fog, Night Lift, Golden Hour, Cinematic, Soft Portrait,
+                HDR Punch, Mono — or let Auto scene detect fog / night / sunset / portrait.
               </p>
             </div>
             """
@@ -245,11 +256,16 @@ def build_demo():
                     height=360,
                     sources=["upload", "clipboard"],
                 )
+                look = gr.Dropdown(
+                    list_looks(),
+                    value="Auto scene",
+                    label="Look · turn into",
+                )
                 with gr.Row():
                     mode = gr.Radio(
                         ["Auto", "Single model"],
                         value="Auto",
-                        label="Mode",
+                        label="Engine",
                         scale=2,
                     )
                     strength = gr.Slider(
@@ -257,7 +273,7 @@ def build_demo():
                     )
                 with gr.Row():
                     preset = gr.Dropdown(
-                        list_presets(), value="Balanced", label="Auto preset", scale=1
+                        list_presets(), value="Balanced", label="Base preset", scale=1
                     )
                     model_name = gr.Dropdown(
                         choices=model_names or ["(none)"],
@@ -267,7 +283,7 @@ def build_demo():
                     )
                 with gr.Row():
                     run_btn = gr.Button("Enhance", variant="primary", scale=2)
-                    cmp_btn = gr.Button("Compare looks", scale=1)
+                    cmp_btn = gr.Button("Compare all looks", scale=1)
                 scenario_md = gr.HTML(
                     '<div class="pl-status">Drop a phone photo to begin.</div>'
                 )
@@ -277,9 +293,9 @@ def build_demo():
                     before = gr.Image(type="pil", label="Before", height=320)
                     after = gr.Image(type="pil", label="After", height=320)
                 gallery = gr.Gallery(
-                    label="Preset strip",
+                    label="Look strip",
                     columns=4,
-                    height=220,
+                    height=240,
                     object_fit="contain",
                 )
 
@@ -292,8 +308,10 @@ def build_demo():
             )
 
         outs = [before, after, scenario_md]
-        run_btn.click(run, [photo, mode, model_name, preset, strength], outs)
-        photo.change(run, [photo, mode, model_name, preset, strength], outs)
+        inputs = [photo, mode, look, model_name, preset, strength]
+        run_btn.click(run, inputs, outs)
+        photo.change(run, inputs, outs)
+        look.change(run, inputs, outs)
         cmp_btn.click(compare, [photo, strength], [gallery])
 
     return demo

@@ -33,16 +33,23 @@ def enhance_bgr(
     strength: float = 0.75,
     mode: str = "auto",
     preset: str = "Balanced",
+    look: str = "Auto scene",
     return_info: bool = False,
 ):
     """
-    mode='auto'  → cascade (default, best for demos)
+    mode='auto'  → cascade / named look (default, best for demos)
     mode='model' → single trained JSON model
     """
     if mode == "auto":
         from .pipeline import enhance_auto
 
-        return enhance_auto(img_bgr, strength=strength, preset=preset, return_info=return_info)
+        return enhance_auto(
+            img_bgr,
+            strength=strength,
+            preset=preset,
+            look=look,
+            return_info=return_info,
+        )
 
     if model_obj is None:
         model_obj = load_model(get_best_model_path())

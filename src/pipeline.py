@@ -399,23 +399,201 @@ def _unsharp_L(lab: np.ndarray, amount: float, radius: float = 1.2) -> np.ndarra
     return out
 
 
+# Named "turn into" looks — cascade + Lab finishers (demo-friendly, CPU-only).
+LOOK_MODES = {
+    "Auto scene": {
+        "blurb": "Detect scene and enhance",
+        "force_scenario": None,
+        "preset": None,
+        "dehaze_boost": 1.0,
+        "warm": 0.0,
+        "cool": 0.0,
+        "teal_orange": 0.0,
+        "crush": 0.0,
+        "fade": 0.0,
+        "mono": False,
+        "clarity_boost": 1.0,
+        "max_d_scale": 1.0,
+    },
+    "Clear Fog": {
+        "blurb": "Lift haze / washed skies",
+        "force_scenario": "haze",
+        "preset": "Punchy",
+        "dehaze_boost": 1.35,
+        "warm": 0.02,
+        "cool": 0.0,
+        "teal_orange": 0.0,
+        "crush": 0.0,
+        "fade": 0.0,
+        "mono": False,
+        "clarity_boost": 1.15,
+        "max_d_scale": 1.15,
+    },
+    "Night Lift": {
+        "blurb": "Open shadows, keep night mood",
+        "force_scenario": "night",
+        "preset": "Balanced",
+        "dehaze_boost": 0.4,
+        "warm": 0.0,
+        "cool": 0.04,
+        "teal_orange": 0.0,
+        "crush": 0.04,
+        "fade": 0.0,
+        "mono": False,
+        "clarity_boost": 0.85,
+        "max_d_scale": 1.2,
+    },
+    "Golden Hour": {
+        "blurb": "Warm sunset colour grade",
+        "force_scenario": "sunset",
+        "preset": "Natural",
+        "dehaze_boost": 0.35,
+        "warm": 0.14,
+        "cool": 0.0,
+        "teal_orange": 0.0,
+        "crush": 0.03,
+        "fade": 0.04,
+        "mono": False,
+        "clarity_boost": 0.75,
+        "max_d_scale": 0.85,
+    },
+    "Cinematic": {
+        "blurb": "Teal shadows · warm mids",
+        "force_scenario": None,
+        "preset": "Balanced",
+        "dehaze_boost": 0.7,
+        "warm": 0.0,
+        "cool": 0.0,
+        "teal_orange": 0.55,
+        "crush": 0.08,
+        "fade": 0.05,
+        "mono": False,
+        "clarity_boost": 1.05,
+        "max_d_scale": 1.0,
+    },
+    "Soft Portrait": {
+        "blurb": "Skin-safe, gentle contrast",
+        "force_scenario": "portrait",
+        "preset": "Natural",
+        "dehaze_boost": 0.25,
+        "warm": 0.05,
+        "cool": 0.0,
+        "teal_orange": 0.0,
+        "crush": 0.0,
+        "fade": 0.06,
+        "mono": False,
+        "clarity_boost": 0.55,
+        "max_d_scale": 0.7,
+    },
+    "HDR Punch": {
+        "blurb": "Local contrast + colour pop",
+        "force_scenario": None,
+        "preset": "Punchy",
+        "dehaze_boost": 0.9,
+        "warm": 0.02,
+        "cool": 0.0,
+        "teal_orange": 0.15,
+        "crush": 0.02,
+        "fade": 0.0,
+        "mono": False,
+        "clarity_boost": 1.25,
+        "max_d_scale": 1.1,
+    },
+    "Mono Print": {
+        "blurb": "Clean black & white print look",
+        "force_scenario": None,
+        "preset": "Balanced",
+        "dehaze_boost": 0.6,
+        "warm": 0.0,
+        "cool": 0.0,
+        "teal_orange": 0.0,
+        "crush": 0.06,
+        "fade": 0.02,
+        "mono": True,
+        "clarity_boost": 1.2,
+        "max_d_scale": 1.05,
+    },
+}
+
+
+def _apply_look_finish(lab: np.ndarray, look: dict, amount: float) -> np.ndarray:
+    """Creative Lab finishers for named looks (amount scales with strength)."""
+    out = lab.astype(np.float64).copy()
+    a = float(np.clip(amount, 0.0, 1.0))
+    L, aa, bb = out[..., 0], out[..., 1], out[..., 2]
+
+    warm = float(look.get("warm", 0.0)) * a
+    cool = float(look.get("cool", 0.0)) * a
+    if warm or cool:
+        bb = bb + warm - 0.35 * cool
+        aa = aa + 0.35 * warm - cool
+
+    to = float(look.get("teal_orange", 0.0)) * a
+    if to > 1e-6:
+        # Shadows → teal (a−, b−), highlights → warm (a+, b+)
+        w = np.clip((L - 0.35) / 0.45, 0.0, 1.0)
+        aa = aa + to * (0.06 * w - 0.05 * (1.0 - w))
+        bb = bb + to * (0.10 * w - 0.07 * (1.0 - w))
+
+    crush = float(look.get("crush", 0.0)) * a
+    if crush > 1e-6:
+        L = np.clip(L * (1.0 - 0.25 * crush) + 0.04 * crush, 0.0, 1.0)
+        L = np.clip(0.5 + (1.0 + 0.35 * crush) * (L - 0.5), 0.0, 1.0)
+
+    fade = float(look.get("fade", 0.0)) * a
+    if fade > 1e-6:
+        L = L * (1.0 - 0.18 * fade) + 0.12 * fade
+        aa *= 1.0 - 0.25 * fade
+        bb *= 1.0 - 0.25 * fade
+
+    if look.get("mono"):
+        # Soft B&W with slight warm paper tone
+        grey = L.copy()
+        aa = aa * (1.0 - a) + 0.02 * a
+        bb = bb * (1.0 - a) + 0.04 * a
+        L = (1.0 - a) * L + a * grey
+
+    out[..., 0] = np.clip(L, 0.0, 1.0)
+    out[..., 1] = np.clip(aa, -1.0, 1.0)
+    out[..., 2] = np.clip(bb, -1.0, 1.0)
+    return out
+
+
 def enhance_auto(
     bgr: np.ndarray,
     strength: float = 0.75,
     preset: str = "Balanced",
+    look: str = "Auto scene",
     return_info: bool = False,
 ):
-    """Full Auto cascade → BGR uint8 (optionally with scenario info)."""
+    """Full Auto cascade → BGR uint8 (optionally with scenario / look info)."""
+    look_cfg = LOOK_MODES.get(look, LOOK_MODES["Auto scene"])
+    if look_cfg.get("preset"):
+        preset = look_cfg["preset"]
     cfg = dict(PRESETS.get(preset, PRESETS["Balanced"]))
     src_lab = bgr_to_lab01(bgr)
     scenario, tune, scores = detect_scenario(src_lab)
+    detected = scenario
+    if look_cfg.get("force_scenario"):
+        scenario = look_cfg["force_scenario"]
+        tune = SCENARIO_TUNING[scenario]
 
     s = float(np.clip(strength * tune["strength"], 0.2, 1.25))
     hz = scores.get("haze", 0.0)
+    if scenario == "haze" or look == "Clear Fog":
+        hz = max(hz, 0.65)
 
-    dehaze_amt = cfg["dehaze"] * s * tune["dehaze"] * (0.15 + 0.85 * max(hz, 0.35 if scenario == "haze" else 0.0))
-    if scenario != "haze":
+    dehaze_amt = (
+        cfg["dehaze"]
+        * s
+        * tune["dehaze"]
+        * float(look_cfg.get("dehaze_boost", 1.0))
+        * (0.15 + 0.85 * max(hz, 0.35 if scenario == "haze" else 0.0))
+    )
+    if scenario != "haze" and look != "Clear Fog":
         dehaze_amt *= 0.5
+        if hz < 0.45:
+            dehaze_amt = 0.0
     work_bgr = _soft_dehaze_bgr(bgr, float(np.clip(dehaze_amt, 0, 1)))
 
     lab = bgr_to_lab01(work_bgr).astype(np.float64)
@@ -427,27 +605,44 @@ def enhance_auto(
     lab = _clahe_L(lab, float(np.clip(tune["clahe"] * s, 0, 1)))
     lab = _blend_colour(lab, cfg["colour"] * s * tune["colour"])
     lab = _apply_cnn(lab, cfg["cnn"] * s * tune["cnn"])
+    clarity = cfg["clarity"] * s * tune["clarity"] * float(look_cfg.get("clarity_boost", 1.0))
+    if tune["clahe"] * s > 0.4:
+        clarity *= 0.75
     lab = _unsharp_L(
         lab,
-        cfg["clarity"] * s * tune["clarity"],
+        clarity,
         radius=1.15 + (0.5 if scenario in {"haze", "detail", "backlight"} else 0.0),
     )
 
+    lab = _apply_look_finish(lab, look_cfg, amount=float(np.clip(strength, 0.0, 1.0)))
+
+    d_scale = float(look_cfg.get("max_d_scale", 1.0))
     lab = stabilize_lab(
         src_lab,
         lab,
         strength=1.0,
-        max_dL=cfg["max_dL"] * tune["max_dL"],
-        max_da=cfg["max_da"] * tune["max_da"],
-        max_db=cfg["max_db"] * tune["max_db"],
+        max_dL=cfg["max_dL"] * tune["max_dL"] * d_scale,
+        max_da=cfg["max_da"] * tune["max_da"] * d_scale,
+        max_db=cfg["max_db"] * tune["max_db"] * d_scale,
     )
+    if look_cfg.get("mono"):
+        # Re-force mono after stabilize (stabilize pulls toward colour src)
+        grey = lab[..., 0:1]
+        lab = np.concatenate(
+            [grey, np.full_like(grey, 0.015), np.full_like(grey, 0.03)], axis=-1
+        )
+
     out = lab01_to_bgr(lab)
     if return_info:
         top = sorted(scores.items(), key=lambda kv: -kv[1])[:3]
+        look_label = look if look != "Auto scene" else tune["label"]
         info = {
             "scenario": scenario,
-            "label": tune["label"],
+            "detected": detected,
+            "look": look,
+            "label": look_label if look != "Auto scene" else f"Auto · {tune['label']}",
             "scores": {k: round(float(v), 3) for k, v in top},
+            "blurb": look_cfg.get("blurb", ""),
         }
         return out, info
     return out
@@ -455,6 +650,10 @@ def enhance_auto(
 
 def list_presets() -> list[str]:
     return list(PRESETS.keys())
+
+
+def list_looks() -> list[str]:
+    return list(LOOK_MODES.keys())
 
 
 def list_scenarios() -> list[str]:
