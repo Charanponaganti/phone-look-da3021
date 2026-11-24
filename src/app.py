@@ -296,6 +296,50 @@ div.toast,
   opacity: 1 !important;
 }
 
+/* Look strip: tight square tiles, no tall empty black frames */
+#look-strip {
+  margin-top: 0.5rem;
+}
+#look-strip .grid-wrap,
+#look-strip .thumbnails,
+#look-strip .gallery-item,
+#look-strip [class*="thumbnail"] {
+  gap: 10px !important;
+}
+#look-strip button.thumbnail-item,
+#look-strip .thumbnail-item,
+#look-strip .gallery-item {
+  background: #121212 !important;
+  border: 1px solid #2a2a2a !important;
+  border-radius: 10px !important;
+  overflow: hidden !important;
+  aspect-ratio: 1 / 1 !important;
+  height: auto !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+}
+#look-strip img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  display: block !important;
+}
+#look-strip .caption,
+#look-strip figcaption,
+#look-strip .thumbnail-item > div:last-child {
+  position: absolute !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  margin: 0 !important;
+  padding: 6px 8px !important;
+  background: linear-gradient(transparent, rgba(0,0,0,0.82)) !important;
+  color: #f5f5f5 !important;
+  font-family: "IBM Plex Mono", monospace !important;
+  font-size: 11px !important;
+  text-align: left !important;
+}
+
 @media (max-width: 900px) {
   #look-tiles .wrap { grid-template-columns: 1fr !important; }
   #phone-look .pl-top { flex-direction: column; align-items: flex-start; }
@@ -709,13 +753,19 @@ def build_demo():
                 run_btn = gr.Button("Re-run", variant="secondary", scale=1)
                 cmp_btn = gr.Button("Compare All Looks", variant="primary", scale=3)
 
-            gallery = gr.Gallery(
-                label="Look strip",
-                columns=3,
-                height=200,
-                object_fit="contain",
-                format="jpeg",
-            )
+            with gr.Accordion("Look comparisons", open=False) as look_acc:
+                gallery = gr.Gallery(
+                    label="All looks",
+                    columns=3,
+                    rows=2,
+                    height="auto",
+                    object_fit="cover",
+                    preview=False,
+                    selected_index=None,
+                    format="jpeg",
+                    elem_id="look-strip",
+                    show_label=False,
+                )
 
         if examples:
             gr.Examples(
@@ -755,7 +805,17 @@ def build_demo():
             [slider, side_row, diff_img],
         )
         sample_btn.click(load_sample, outputs=[photo])
-        cmp_btn.click(compare_all, [photo, strength, look, preset], [gallery])
+
+        def compare_and_open(photo, strength, look, preset):
+            import gradio as gr
+
+            return compare_all(photo, strength, look, preset), gr.update(open=True)
+
+        cmp_btn.click(
+            compare_and_open,
+            [photo, strength, look, preset],
+            [gallery, look_acc],
+        )
 
         demo.queue(default_concurrency_limit=1, max_size=8)
 
