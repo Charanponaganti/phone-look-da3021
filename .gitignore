@@ -25,3 +25,4 @@ outputs/figures/
 # Local scratch
 *.log
 .ipynb_checkpoints/
+.gradio/
